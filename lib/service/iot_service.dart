@@ -1,4 +1,4 @@
-import 'package:smart_irigation/models.dart';
+import 'package:smart_irigation/models/models.dart';
 
 class IotService {
   // Simulasi pembacaan sensor HW-080

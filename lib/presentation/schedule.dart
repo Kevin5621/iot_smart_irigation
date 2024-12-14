@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:smart_irigation/models.dart';
+import 'package:smart_irigation/models/models.dart';
 
 class ScheduledWateringPage extends StatefulWidget {
   final PumpSettings settings;
