@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:smart_irigation/presentation/home.dart';
+import 'package:smart_irigation/presentation/home/home.dart';
 
 void main() {
   runApp(const SmartIrrigationApp());

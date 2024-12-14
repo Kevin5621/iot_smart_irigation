@@ -1,12 +1,35 @@
-
 import 'package:flutter/material.dart';
 import 'package:glassmorphism/glassmorphism.dart';
 
 class MoistureSensorCard extends StatelessWidget {
-  const MoistureSensorCard({super.key});
+  final double moistureLevel;
+  final Color? accentColor;
+  final String? title;
+  final TextStyle? titleStyle;
+  final TextStyle? valueStyle;
+  final TextStyle? statusStyle;
+
+  const MoistureSensorCard({
+    super.key,
+    required this.moistureLevel,
+    this.accentColor = Colors.green,
+    this.title = 'Soil Moisture',
+    this.titleStyle,
+    this.valueStyle,
+    this.statusStyle,
+  });
+
+  String _getMoistureStatus(double moisture) {
+    if (moisture < 30) return 'Very Dry';
+    if (moisture < 50) return 'Dry';
+    if (moisture < 70) return 'Optimal Condition';
+    return 'Too Wet';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final status = _getMoistureStatus(moistureLevel);
+
     return GlassmorphicContainer(
       width: double.infinity,
       height: 200,
@@ -18,8 +41,8 @@ class MoistureSensorCard extends StatelessWidget {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          const Color(0xFFffffff).withOpacity(0.1),
-          const Color(0xFFFFFFFF).withOpacity(0.05),
+          Colors.white.withOpacity(0.1),
+          Colors.white.withOpacity(0.05),
         ],
         stops: const [0.1, 1],
       ),
@@ -40,9 +63,9 @@ class MoistureSensorCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Soil Moisture',
-                  style: TextStyle(
+                Text(
+                  title ?? 'Soil Moisture',
+                  style: titleStyle ?? TextStyle(
                     color: Colors.white70,
                     fontSize: 16,
                   ),
@@ -50,27 +73,27 @@ class MoistureSensorCard extends StatelessWidget {
                 Container(
                   width: 15,
                   height: 15,
-                  decoration: const BoxDecoration(
-                    color: Colors.green,
+                  decoration: BoxDecoration(
+                    color: accentColor,
                     shape: BoxShape.circle,
                   ),
                 ),
               ],
             ),
-            const Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '65.5%',
-                  style: TextStyle(
+                  '${moistureLevel.toStringAsFixed(1)}%',
+                  style: valueStyle ?? const TextStyle(
                     fontSize: 48,
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  'Optimal Condition',
-                  style: TextStyle(
+                  status,
+                  style: statusStyle ?? TextStyle(
                     color: Colors.white70,
                     fontSize: 16,
                   ),

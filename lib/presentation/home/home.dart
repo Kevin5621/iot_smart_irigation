@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:smart_irigation/widgets/bottom_sheet.dart';
-import 'package:smart_irigation/widgets/control_section.dart';
-import 'package:smart_irigation/widgets/moisture_sensor_card.dart';
-import 'package:smart_irigation/widgets/schedule_card.dart';
+import 'package:smart_irigation/models/models.dart';
+import 'package:smart_irigation/presentation/schedule/schedule.dart';
+import 'package:smart_irigation/presentation/home/widgets/setting.dart';
+import 'package:smart_irigation/presentation/home/widgets/control_section.dart';
+import 'package:smart_irigation/presentation/home/widgets/moisture_sensor_card.dart';
+import 'package:smart_irigation/presentation/home/widgets/schedule_card.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -28,7 +30,7 @@ class HomePage extends StatelessWidget {
       backgroundColor: Colors.transparent,
       leading: IconButton(
         icon: const Icon(Icons.menu, color: Colors.white),
-        onPressed: () {}, // Future: Add side menu
+        onPressed: () => _openScheduledWateringPage(context), // Updated method
       ),
       title: const Text(
         'Smart Irrigation', 
@@ -43,6 +45,21 @@ class HomePage extends StatelessWidget {
           onPressed: () => _showSettingsBottomSheet(context),
         ),
       ],
+    );
+  }
+
+  void _openScheduledWateringPage(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScheduledWateringPage(
+          settings: PumpSettings(),
+          onSettingsUpdated: (updatedSettings) {
+            // Handle settings update if needed
+            // You might want to save these settings or update app state
+          },
+        ),
+      ),
     );
   }
 
@@ -78,7 +95,7 @@ class _HomePageBody extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              MoistureSensorCard(),
+              MoistureSensorCard(moistureLevel: 60,),
               SizedBox(height: 20),
               BuildControlSection(),
               SizedBox(height: 20),
