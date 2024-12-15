@@ -1,9 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:smart_irigation/service/iot_service.dart';
 import 'package:smart_irigation/utils/button.dart';
 
-class BuildControlSection extends StatelessWidget {
-  const BuildControlSection({super.key});
+class BuildControlSection extends StatefulWidget {
+  final IoTService iotService;
+
+  const BuildControlSection({
+    super.key, 
+    required this.iotService
+  });
+
+  @override
+  _BuildControlSectionState createState() => _BuildControlSectionState();
+}
+
+class _BuildControlSectionState extends State<BuildControlSection> {
+  bool _isPumpOn = false;
 
   @override
   Widget build(BuildContext context) {
@@ -12,15 +25,25 @@ class BuildControlSection extends StatelessWidget {
         Expanded(
           child: GlassMorphicButton(
             onPressed: () {
-              // Implement pump control
+              // Toggle pump status
+              setState(() {
+                _isPumpOn = !_isPumpOn;
+              });
+              widget.iotService.controlPump(_isPumpOn);
               HapticFeedback.lightImpact();
             },
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.water_drop, color: Colors.white),
-                SizedBox(width: 10),
-                Text('Control Pump', style: TextStyle(color: Colors.white)),
+                Icon(
+                  Icons.water_drop, 
+                  color: _isPumpOn ? Colors.blue : Colors.white
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  _isPumpOn ? 'Stop Pump' : 'Control Pump', 
+                  style: const TextStyle(color: Colors.white)
+                ),
               ],
             ),
           ),
@@ -29,7 +52,8 @@ class BuildControlSection extends StatelessWidget {
         Expanded(
           child: GlassMorphicButton(
             onPressed: () {
-              // Implement refresh
+              // Refresh data manually 
+              widget.iotService.connect();
               HapticFeedback.lightImpact();
             },
             child: const Row(

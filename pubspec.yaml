@@ -35,6 +35,10 @@ dependencies:
   uuid: ^4.4.2
   glassmorphism: ^3.0.0
   provider: ^6.1.2
+  shared_preferences: ^2.0.17
+  equatable: ^2.0.3
+  flutter_bloc: ^8.1.1
+  mqtt_client: ^10.0.0
 
 dev_dependencies:
   flutter_test:

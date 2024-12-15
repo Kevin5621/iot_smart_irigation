@@ -5,9 +5,43 @@ import 'package:smart_irigation/presentation/home/widgets/setting.dart';
 import 'package:smart_irigation/presentation/home/widgets/control_section.dart';
 import 'package:smart_irigation/presentation/home/widgets/moisture_sensor_card.dart';
 import 'package:smart_irigation/presentation/home/widgets/schedule_card.dart';
+import 'package:smart_irigation/service/iot_service.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  _HomePageState createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final IoTService _iotService = IoTService();
+  double _moistureLevel = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _iotService.connect();
+
+    // Listen to moisture level stream
+    _iotService.moistureLevelStream.listen((level) {
+      setState(() {
+        _moistureLevel = level;
+      });
+    });
+
+    // Listen to pump status stream
+    _iotService.pumpStatusStream.listen((status) {
+      setState(() {
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _iotService.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,10 +52,14 @@ class HomePage extends StatelessWidget {
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           _buildCustomAppBar(context),
         ],
-        body: const _HomePageBody(),
+        body: _HomePageBody(
+          moistureLevel: _moistureLevel,
+          iotService: _iotService,
+        ),
       ),
     );
   }
+
 
   SliverAppBar _buildCustomAppBar(BuildContext context) {
     return SliverAppBar(
@@ -74,7 +112,13 @@ class HomePage extends StatelessWidget {
 }
 
 class _HomePageBody extends StatelessWidget {
-  const _HomePageBody();
+  final double moistureLevel;
+  final IoTService iotService;
+
+  const _HomePageBody({
+    required this.moistureLevel, 
+    required this.iotService
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -89,17 +133,17 @@ class _HomePageBody extends StatelessWidget {
           ],
         ),
       ),
-      child: const SafeArea(
+      child: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              MoistureSensorCard(moistureLevel: 60,),
-              SizedBox(height: 20),
-              BuildControlSection(),
-              SizedBox(height: 20),
-              ScheduleCard(),
+              MoistureSensorCard(moistureLevel: moistureLevel),
+              const SizedBox(height: 20),
+              BuildControlSection(iotService: iotService),
+              const SizedBox(height: 20),
+              const ScheduleCard(),
             ],
           ),
         ),

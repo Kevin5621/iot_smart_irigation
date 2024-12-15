@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:smart_irigation/presentation/home/home.dart';
 
 void main() {
-  runApp(const SmartIrrigationApp());
+  runApp(const MyApp());
 }
 
-class SmartIrrigationApp extends StatelessWidget {
-  const SmartIrrigationApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {

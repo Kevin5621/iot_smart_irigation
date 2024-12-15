@@ -1,43 +1,107 @@
-import 'package:smart_irigation/models/models.dart';
+import 'package:flutter/material.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
+import 'dart:async';
+import 'dart:convert';
 
-class IotService {
-  // Simulasi pembacaan sensor HW-080
-  Future<MoistureData> readMoisture() async {
-    // TODO: Ganti dengan aktual pembacaan sensor melalui ESP8266
-    await Future.delayed(const Duration(seconds: 1));
-    return MoistureData(
-      moisture: 45.5, 
-      timestamp: DateTime.now()
+class IoTService {
+  final String _broker = 'broker.hivemq.com';
+  final String _clientId = 'smart_irrigation_app';
+  late MqttServerClient _client;
+  
+  // Streams untuk menangani data dari sensor dan status pompa
+  final _moistureLevelController = StreamController<double>.broadcast();
+  final _pumpStatusController = StreamController<bool>.broadcast();
+
+  Stream<double> get moistureLevelStream => _moistureLevelController.stream;
+  Stream<bool> get pumpStatusStream => _pumpStatusController.stream;
+
+  IoTService() {
+    _initializeMQTTClient();
+  }
+
+  void _initializeMQTTClient() {
+    _client = MqttServerClient(_broker, _clientId);
+    _client.logging(on: true);
+    _client.keepAlivePeriod = 60;
+    _client.onConnected = _onConnected;
+    _client.onDisconnected = _onDisconnected;
+    _client.onSubscribed = _onSubscribed;
+
+    final connMessage = MqttConnectMessage()
+        .withClientIdentifier(_clientId)
+        .startClean()
+        .withWillQos(MqttQos.atLeastOnce);
+
+    _client.connectionMessage = connMessage;
+  }
+
+  Future<void> connect() async {
+    try {
+      await _client.connect();
+      
+      // Subscribe ke topik moisture dan pump status
+      _client.subscribe('smart_irrigation/moisture', MqttQos.atMostOnce);
+      _client.subscribe('smart_irrigation/pump_status', MqttQos.atMostOnce);
+
+      _client.updates?.listen((List<MqttReceivedMessage> c) {
+        final MqttPublishMessage message = c[0].payload as MqttPublishMessage;
+        
+        // Decode payload dengan cara yang benar
+        final String payload = 
+            const Utf8Decoder().convert(message.payload.message.toList());
+
+        if (c[0].topic == 'smart_irrigation/moisture') {
+          try {
+            _moistureLevelController.add(double.parse(payload));
+          } catch (e) {
+            debugPrint('Error parsing moisture level: $e');
+          }
+        } else if (c[0].topic == 'smart_irrigation/pump_status') {
+          _pumpStatusController.add(payload == 'ON');
+        }
+      });
+    } catch (e) {
+      debugPrint('Connection error: $e');
+    }
+  }
+
+  void controlPump(bool turnOn) {
+    final builder = MqttClientPayloadBuilder();
+    builder.addString(turnOn ? 'ON' : 'OFF');
+    _client.publishMessage(
+      'smart_irrigation/pump_control', 
+      MqttQos.atLeastOnce, 
+      builder.payload!
     );
   }
 
-  // Kontrol pompa dengan duration
-  Future<bool> controlPump(bool isOn, {int? duration}) async {
-    // TODO: Implementasi kontrol pompa via ESP8266
-    await Future.delayed(const Duration(seconds: 1));
-    return true;
+  void updatePumpSettings(Map<String, dynamic> settings) {
+    final builder = MqttClientPayloadBuilder();
+    builder.addString(jsonEncode(settings));
+    _client.publishMessage(
+      'smart_irrigation/pump_settings', 
+      MqttQos.atLeastOnce, 
+      builder.payload!
+    );
   }
 
-  // Update pengaturan 
-  Future<bool> updateSettings(PumpSettings settings) async {
-    // TODO: Kirim pengaturan ke ESP8266
-    await Future.delayed(const Duration(seconds: 1));
-    return true;
+  void _onConnected() {
+    debugPrint('Connected to MQTT broker');
   }
 
-  Future<void> scheduleWatering(PumpSettings settings) async {
-    // TODO: Implement actual scheduled watering logic via ESP8266
-    await Future.delayed(const Duration(seconds: 1));
-    print('Scheduled watering configured');
+  void _onDisconnected() {
+    debugPrint('Disconnected from MQTT broker');
+    // Implementasi reconnect jika diperlukan
   }
 
-  // Logika otomatis kontrol pompa berdasarkan moisture
-  Future<void> autoControlPump(MoistureData moistureData, PumpSettings settings) async {
-    if (settings.isAutoMode) {
-      if (moistureData.moisture < settings.lowerThreshold) {
-        // Nyalakan pompa untuk durasi tertentu
-        await controlPump(true, duration: settings.pumpDuration);
-      }
-    }
+  void _onSubscribed(String topic) {
+    debugPrint('Subscribed to $topic');
+  }
+
+  void dispose() {
+    _client.disconnect();
+    _moistureLevelController.close();
+    _pumpStatusController.close();
   }
 }
