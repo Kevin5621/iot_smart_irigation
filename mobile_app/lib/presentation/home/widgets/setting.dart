@@ -1,14 +1,54 @@
 import 'package:flutter/material.dart';
 import 'package:glassmorphism/glassmorphism.dart';
+import 'package:smart_irigation/service/setting_service.dart';
 
-class SettingsBottomSheet extends StatelessWidget {
-  const SettingsBottomSheet({super.key});
+class SettingsBottomSheet extends StatefulWidget {
+  final IrrigationSettingsService settingsService;
+  
+
+  const SettingsBottomSheet({
+    super.key, 
+    required this.settingsService
+  });
+
+  @override
+  _SettingsBottomSheetState createState() => _SettingsBottomSheetState();
+}
+
+class _SettingsBottomSheetState extends State<SettingsBottomSheet> {
+  late bool _automaticMode;
+  late double _lowerThreshold;
+  late double _upperThreshold;
+  late double _pumpDuration;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentSettings();
+  }
+
+  Future<void> _loadCurrentSettings() async {
+    final settings = await widget.settingsService.getSettings();
+    setState(() {
+      _automaticMode = settings.automaticMode;
+      _lowerThreshold = settings.lowerThreshold;
+      _upperThreshold = settings.upperThreshold;
+      _pumpDuration = settings.pumpDuration;
+    });
+  }
+
+  Future<void> _saveSettings() async {
+    await widget.settingsService.saveAutomaticMode(_automaticMode);
+    await widget.settingsService.saveLowerThreshold(_lowerThreshold);
+    await widget.settingsService.saveUpperThreshold(_upperThreshold);
+    await widget.settingsService.savePumpDuration(_pumpDuration);
+  }
 
   @override
   Widget build(BuildContext context) {
     return GlassmorphicContainer(
       width: double.infinity,
-      height: MediaQuery.of(context).size.height * 0.7,
+      height: MediaQuery.of(context).size.height * 0.5,
       borderRadius: 20,
       blur: 20,
       alignment: Alignment.center,
@@ -41,29 +81,67 @@ class SettingsBottomSheet extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 20),
-          _buildSettingSwitch('Automatic Mode', true),
-          _buildSettingSlider('Lower Threshold', 30),
-          _buildSettingSlider('Upper Threshold', 70),
-          _buildSettingSlider('Pump Duration', 60),
+          SwitchListTile(
+            title: const Text(
+              'Automatic Mode',
+              style: TextStyle(color: Colors.white),
+            ),
+            value: _automaticMode,
+            onChanged: (bool value) {
+              setState(() {
+                _automaticMode = value;
+                _saveSettings();
+              });
+            },
+          ),
+          _buildSettingSlider(
+            'Lower Moisture Threshold',
+            _lowerThreshold,
+            0,
+            50,
+            (value) {
+              setState(() {
+                _lowerThreshold = value;
+                _saveSettings();
+              });
+            },
+          ),
+          _buildSettingSlider(
+            'Upper Moisture Threshold',
+            _upperThreshold,
+            50,
+            100,
+            (value) {
+              setState(() {
+                _upperThreshold = value;
+                _saveSettings();
+              });
+            },
+          ),
+          _buildSettingSlider(
+            'Pump Duration (minutes)',
+            _pumpDuration,
+            1,
+            30,
+            (value) {
+              setState(() {
+                _pumpDuration = value;
+                _saveSettings();
+              });
+            },
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSettingSwitch(String title, bool value) {
-    return SwitchListTile(
-      title: Text(
-        title,
-        style: const TextStyle(color: Colors.white70),
-      ),
-      value: value,
-      onChanged: (bool newValue) {},
-      activeColor: Colors.green,
-    );
-  }
-
-  Widget _buildSettingSlider(String title, double value) {
+  Widget _buildSettingSlider(
+    String title, 
+    double value, 
+    double min, 
+    double max, 
+    ValueChanged<double> onChanged
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -76,13 +154,12 @@ class SettingsBottomSheet extends StatelessWidget {
         ),
         Slider(
           value: value,
-          min: 0,
-          max: 100,
-          divisions: 100,
+          min: min,
+          max: max,
+          divisions: (max - min).toInt(),
           label: value.round().toString(),
-          onChanged: (double newValue) {},
+          onChanged: onChanged,
           activeColor: Colors.green,
-          inactiveColor: Colors.white30,
         ),
       ],
     );

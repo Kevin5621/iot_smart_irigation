@@ -29,7 +29,7 @@ class _BuildControlSectionState extends State<BuildControlSection> {
               setState(() {
                 _isPumpOn = !_isPumpOn;
               });
-              widget.iotService.controlPump(_isPumpOn);
+              widget.iotService.controlPump(isOn: _isPumpOn);
               HapticFeedback.lightImpact();
             },
             child: Row(
