@@ -86,23 +86,23 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          _buildCustomAppBar(context),
+      appBar: _buildCustomAppBar(context),
+      body: Column(
+        children: [
+          Expanded(
+            child: _HomePageBody(
+              moistureLevel: _moistureLevel,
+              iotService: _iotService,
+              settingsService: _settingsService,
+            ),
+          ),
         ],
-        body: _HomePageBody(
-          moistureLevel: _moistureLevel,
-          iotService: _iotService,
-          settingsService: _settingsService,
-        ),
       ),
     );
   }
 
-  SliverAppBar _buildCustomAppBar(BuildContext context) {
-    return SliverAppBar(
-      floating: true,
-      snap: true,
+  AppBar _buildCustomAppBar(BuildContext context) {
+    return AppBar(
       backgroundColor: Colors.transparent,
       leading: IconButton(
         icon: const Icon(Icons.menu, color: Colors.white),
@@ -197,7 +197,7 @@ class __HomePageBodyState extends State<_HomePageBody> {
         ),
       ),
       child: SafeArea(
-        child: SingleChildScrollView(
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -206,11 +206,11 @@ class __HomePageBodyState extends State<_HomePageBody> {
               Card(
                 color: Colors.black54,
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(10.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Irrigation Settings',
                         style: TextStyle(
                           color: Colors.white,
@@ -218,23 +218,11 @@ class __HomePageBodyState extends State<_HomePageBody> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 10),
-                      _buildSettingInfo(
-                        'Automatic Mode', 
-                        _settings.automaticMode ? 'Enabled' : 'Disabled'
-                      ),
-                      _buildSettingInfo(
-                        'Lower Moisture Threshold', 
-                        '${_settings.lowerThreshold.round()}%'
-                      ),
-                      _buildSettingInfo(
-                        'Upper Moisture Threshold', 
-                        '${_settings.upperThreshold.round()}%'
-                      ),
-                      _buildSettingInfo(
-                        'Pump Duration', 
-                        '${_settings.pumpDuration.round()} minutes'
-                      ),
+                      const SizedBox(height: 10),
+                      _buildSettingInfo('Automatic Mode', _settings.automaticMode ? 'Enabled' : 'Disabled'),
+                      _buildSettingInfo('Lower Moisture Threshold', '${_settings.lowerThreshold.round()}%'),
+                      _buildSettingInfo('Upper Moisture Threshold', '${_settings.upperThreshold.round()}%'),
+                      _buildSettingInfo('Pump Duration', '${_settings.pumpDuration.round()} minutes'),
                     ],
                   ),
                 ),
@@ -252,6 +240,7 @@ class __HomePageBodyState extends State<_HomePageBody> {
     );
   }
 
+
   Widget _buildSettingInfo(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -260,11 +249,11 @@ class __HomePageBodyState extends State<_HomePageBody> {
         children: [
           Text(
             label,
-            style: TextStyle(color: Colors.white70),
+            style: const TextStyle(color: Colors.white70),
           ),
           Text(
             value,
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ],
       ),

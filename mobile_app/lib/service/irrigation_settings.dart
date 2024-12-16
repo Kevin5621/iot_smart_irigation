@@ -10,4 +10,13 @@ class IrrigationSettings {
     this.upperThreshold = 70.0,
     this.pumpDuration = 10.0,
   });
+
+   Map<String, dynamic> toMap() {
+    return {
+      'automaticMode': automaticMode,
+      'lowerThreshold': lowerThreshold,
+      'upperThreshold': upperThreshold,
+      'pumpDuration': pumpDuration,
+    };
+  }
 }

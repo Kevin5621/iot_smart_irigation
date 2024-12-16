@@ -7,6 +7,7 @@ import 'dart:convert';
 class IoTService {
   final String _broker = 'broker.hivemq.com';
   final String _clientId = 'smart_irrigation_app';
+  // late MqttServerClient _client;
   late MqttClient _client;
   
   // Streams untuk menangani data dari sensor dan status pompa
@@ -31,6 +32,7 @@ class IoTService {
   }
 
   void _initializeMQTTClient() {
+    // _client = MqttServerClient(_broker, _clientId);
     _client = MqttClient(_broker, _clientId);
     _client.logging(on: true);
     _client.keepAlivePeriod = 60;
