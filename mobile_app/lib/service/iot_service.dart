@@ -7,20 +7,21 @@ import 'dart:convert';
 class IoTService {
   final String _broker = 'broker.hivemq.com';
   final String _clientId = 'smart_irrigation_app';
-  // late MqttServerClient _client;
   late MqttClient _client;
   
-  // Streams untuk menangani data dari sensor dan status pompa
+  // Streams untuk menangani data dari sensor, status pompa, dan status perangkat
   final _moistureLevelController = StreamController<double>.broadcast();
   final _pumpStatusController = StreamController<bool>.broadcast();
   final _settingsController = StreamController<Map<String, dynamic>>.broadcast();
+  final _deviceStatusController = StreamController<bool>.broadcast();
 
   Stream<double> get moistureLevelStream => _moistureLevelController.stream;
   Stream<bool> get pumpStatusStream => _pumpStatusController.stream;
   Stream<Map<String, dynamic>> get settingsStream => _settingsController.stream;
+  Stream<bool> get deviceStatusStream => _deviceStatusController.stream;
 
   // Default settings
-  Map<String, dynamic> _currentSettings = {
+  final Map<String, dynamic> _currentSettings = {
     'automaticMode': true,
     'lowerThreshold': 30.0,
     'upperThreshold': 70.0,
@@ -32,7 +33,6 @@ class IoTService {
   }
 
   void _initializeMQTTClient() {
-    // _client = MqttServerClient(_broker, _clientId);
     _client = MqttClient(_broker, _clientId);
     _client.logging(on: true);
     _client.keepAlivePeriod = 60;
@@ -56,6 +56,9 @@ class IoTService {
       _client.subscribe('smart_irrigation/moisture', MqttQos.atMostOnce);
       _client.subscribe('smart_irrigation/pump_status', MqttQos.atMostOnce);
 
+      // Notify the device is online
+      _deviceStatusController.add(true);
+
       _client.updates?.listen((List<MqttReceivedMessage> c) {
         final MqttPublishMessage message = c[0].payload as MqttPublishMessage;
         
@@ -74,6 +77,8 @@ class IoTService {
       });
     } catch (e) {
       debugPrint('Connection error: $e');
+      // In case of an error, mark device as offline
+      _deviceStatusController.add(false);
     }
   }
 
@@ -126,10 +131,14 @@ class IoTService {
 
   void _onConnected() {
     debugPrint('Connected to MQTT broker');
+    // Ensure the device is online when connected
+    _deviceStatusController.add(true);
   }
 
   void _onDisconnected() {
     debugPrint('Disconnected from MQTT broker');
+    // Ensure the device is offline when disconnected
+    _deviceStatusController.add(false);
   }
 
   void _onSubscribed(String topic) {
@@ -141,5 +150,6 @@ class IoTService {
     _moistureLevelController.close();
     _pumpStatusController.close();
     _settingsController.close();
+    _deviceStatusController.close();
   }
 }

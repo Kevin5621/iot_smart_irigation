@@ -20,14 +20,15 @@ class _HomePageState extends State<HomePage> {
   // Inisialisasi service-service yang dibutuhkan
   final IoTService _iotService = IoTService();
   final IrrigationSettingsService _settingsService = IrrigationSettingsService();
-  
+
   double _moistureLevel = 0.0;
   late IrrigationSettings _irrigationSettings;
+  bool _isDeviceOnline = false;
 
   @override
   void initState() {
     super.initState();
-    
+
     // Koneksi IoT service
     _iotService.connect();
 
@@ -48,6 +49,13 @@ class _HomePageState extends State<HomePage> {
     _iotService.pumpStatusStream.listen((status) {
       setState(() {
         // Jika perlu update UI berdasarkan status pompa
+      });
+    });
+
+    // Listen to device connection status
+    _iotService.deviceStatusStream.listen((status) {
+      setState(() {
+        _isDeviceOnline = status;
       });
     });
   }
@@ -92,6 +100,7 @@ class _HomePageState extends State<HomePage> {
           Expanded(
             child: _HomePageBody(
               moistureLevel: _moistureLevel,
+              isDeviceOnline: _isDeviceOnline,
               iotService: _iotService,
               settingsService: _settingsService,
             ),
@@ -154,11 +163,13 @@ class _HomePageState extends State<HomePage> {
 
 class _HomePageBody extends StatefulWidget {
   final double moistureLevel;
+  final bool isDeviceOnline;
   final IoTService iotService;
   final IrrigationSettingsService settingsService;
 
   const _HomePageBody({
     required this.moistureLevel, 
+    required this.isDeviceOnline,
     required this.iotService,
     required this.settingsService,
   });
@@ -228,7 +239,10 @@ class __HomePageBodyState extends State<_HomePageBody> {
                 ),
               ),
               const SizedBox(height: 20),
-              MoistureSensorCard(moistureLevel: widget.moistureLevel),
+              MoistureSensorCard(
+                moistureLevel: widget.moistureLevel,
+                isDeviceOnline: widget.isDeviceOnline,
+              ),
               const SizedBox(height: 20),
               BuildControlSection(iotService: widget.iotService),
               const SizedBox(height: 20),
@@ -239,7 +253,6 @@ class __HomePageBodyState extends State<_HomePageBody> {
       ),
     );
   }
-
 
   Widget _buildSettingInfo(String label, String value) {
     return Padding(

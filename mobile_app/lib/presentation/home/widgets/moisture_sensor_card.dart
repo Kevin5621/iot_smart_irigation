@@ -3,6 +3,7 @@ import 'package:glassmorphism/glassmorphism.dart';
 
 class MoistureSensorCard extends StatelessWidget {
   final double moistureLevel;
+  final bool isDeviceOnline;
   final Color? accentColor;
   final String? title;
   final TextStyle? titleStyle;
@@ -12,6 +13,7 @@ class MoistureSensorCard extends StatelessWidget {
   const MoistureSensorCard({
     super.key,
     required this.moistureLevel,
+    required this.isDeviceOnline,
     this.accentColor = Colors.green,
     this.title = 'Soil Moisture',
     this.titleStyle,
@@ -20,15 +22,25 @@ class MoistureSensorCard extends StatelessWidget {
   });
 
   String _getMoistureStatus(double moisture) {
+    if (!isDeviceOnline) return 'Device Offline';
     if (moisture < 30) return 'Very Dry';
     if (moisture < 50) return 'Dry';
     if (moisture < 70) return 'Optimal Condition';
     return 'Too Wet';
   }
 
+  Color _getStatusColor() {
+    if (!isDeviceOnline) return Colors.red;
+    if (moistureLevel < 30) return Colors.orange;
+    if (moistureLevel < 50) return Colors.yellow;
+    if (moistureLevel < 70) return Colors.green;
+    return Colors.blue;
+  }
+
   @override
   Widget build(BuildContext context) {
     final status = _getMoistureStatus(moistureLevel);
+    final statusColor = _getStatusColor();
 
     return GlassmorphicContainer(
       width: double.infinity,
@@ -66,7 +78,7 @@ class MoistureSensorCard extends StatelessWidget {
                 Text(
                   title ?? 'Soil Moisture',
                   style: titleStyle ?? TextStyle(
-                    color: Colors.white70,
+                    color: isDeviceOnline ? Colors.white70 : Colors.red,
                     fontSize: 16,
                   ),
                 ),
@@ -74,7 +86,7 @@ class MoistureSensorCard extends StatelessWidget {
                   width: 15,
                   height: 15,
                   decoration: BoxDecoration(
-                    color: accentColor,
+                    color: isDeviceOnline ? accentColor : Colors.red,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -84,18 +96,21 @@ class MoistureSensorCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${moistureLevel.toStringAsFixed(1)}%',
-                  style: valueStyle ?? const TextStyle(
+                  isDeviceOnline 
+                    ? '${moistureLevel.toStringAsFixed(1)}%' 
+                    : 'N/A',
+                  style: valueStyle ?? TextStyle(
                     fontSize: 48,
-                    color: Colors.white,
+                    color: isDeviceOnline ? Colors.white : Colors.red,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   status,
                   style: statusStyle ?? TextStyle(
-                    color: Colors.white70,
+                    color: statusColor,
                     fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
