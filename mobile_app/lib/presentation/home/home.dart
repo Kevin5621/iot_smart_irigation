@@ -13,6 +13,7 @@ class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _HomePageState createState() => _HomePageState();
 }
 
@@ -42,6 +43,16 @@ class _HomePageState extends State<HomePage> {
         
         // Cek apakah perlu menyalakan pompa berdasarkan pengaturan
         _checkAndControlPump(level);
+      });
+    });
+
+    //listener setting berubah
+    _settingsService.settingsStream.listen((updatedSettings) {
+      setState(() {
+        _irrigationSettings = updatedSettings;
+        
+        // Optionally, re-check pump control with new settings
+        _checkAndControlPump(_moistureLevel);
       });
     });
 
@@ -85,6 +96,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _settingsService.dispose();
     _iotService.dispose();
     super.dispose();
   }
