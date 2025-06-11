@@ -6,7 +6,7 @@ import 'package:smart_irigation/entities/entities.dart';
 import 'package:uuid/uuid.dart';
 
 class PlantClassificationService {
-  static const String _baseUrl = 'http://localhost:8000'; // Ganti dengan IP server Python API
+  static const String _baseUrl = 'http://127.0.0.1:8000/';
   final _uuid = const Uuid();
   
   Future<PlantEntity?> classifyPlant(File imageFile) async {
@@ -14,15 +14,26 @@ class PlantClassificationService {
       final uri = Uri.parse('$_baseUrl/predict');
       final request = http.MultipartRequest('POST', uri);
       
-      // Tambahkan file gambar ke request
-      final multipartFile = await http.MultipartFile.fromPath(
-        'file',
-        imageFile.path,
-      );
-      request.files.add(multipartFile);
+      // Platform-specific file handling
+      if (kIsWeb) {
+        // For web platform
+        final bytes = await imageFile.readAsBytes();
+        final multipartFile = http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: 'image.jpg',
+        );
+        request.files.add(multipartFile);
+      } else {
+        // For mobile/desktop platforms
+        final multipartFile = await http.MultipartFile.fromPath(
+          'file',
+          imageFile.path,
+        );
+        request.files.add(multipartFile);
+      }
       
-      // Kirim request dengan client yang aman untuk web
-      final client = kIsWeb ? http.Client() : http.Client();
+      final client = http.Client();
       final streamedResponse = await client.send(request);
       final response = await http.Response.fromStream(streamedResponse);
       client.close();
@@ -51,13 +62,24 @@ class PlantClassificationService {
       final uri = Uri.parse('$_baseUrl/explain/lime');
       final request = http.MultipartRequest('POST', uri);
       
-      final multipartFile = await http.MultipartFile.fromPath(
-        'file',
-        imageFile.path,
-      );
-      request.files.add(multipartFile);
+      // Platform-specific file handling
+      if (kIsWeb) {
+        final bytes = await imageFile.readAsBytes();
+        final multipartFile = http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: 'image.jpg',
+        );
+        request.files.add(multipartFile);
+      } else {
+        final multipartFile = await http.MultipartFile.fromPath(
+          'file',
+          imageFile.path,
+        );
+        request.files.add(multipartFile);
+      }
       
-      final client = kIsWeb ? http.Client() : http.Client();
+      final client = http.Client();
       final streamedResponse = await client.send(request);
       final response = await http.Response.fromStream(streamedResponse);
       client.close();
@@ -78,14 +100,24 @@ class PlantClassificationService {
       final uri = Uri.parse('$_baseUrl/explain/shap');
       final request = http.MultipartRequest('POST', uri);
       
-      final multipartFile = await http.MultipartFile.fromPath(
-        'file',
-        imageFile.path,
-      );
-      request.files.add(multipartFile);
+      // Platform-specific file handling
+      if (kIsWeb) {
+        final bytes = await imageFile.readAsBytes();
+        final multipartFile = http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: 'image.jpg',
+        );
+        request.files.add(multipartFile);
+      } else {
+        final multipartFile = await http.MultipartFile.fromPath(
+          'file',
+          imageFile.path,
+        );
+        request.files.add(multipartFile);
+      }
       
-      // Kirim request dengan client yang aman untuk web
-      final client = kIsWeb ? http.Client() : http.Client();
+      final client = http.Client();
       final streamedResponse = await client.send(request);
       final response = await http.Response.fromStream(streamedResponse);
       client.close();
