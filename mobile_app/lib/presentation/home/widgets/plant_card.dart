@@ -195,25 +195,29 @@ class PlantCard extends StatelessWidget {
         Icon(
           Icons.camera_alt_outlined,
           color: Colors.white.withOpacity(0.7),
-          size: 32,
+          size: 28, // Reduced from 32
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8), // Reduced from 12
         Text(
           'No Plant Detected',
           style: TextStyle(
             color: Colors.white.withOpacity(0.9),
-            fontSize: 16,
+            fontSize: 14, // Reduced from 16
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Tap the camera button to scan a plant',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 12,
+        const SizedBox(height: 2), // Reduced from 4
+        Flexible( // Added Flexible to prevent overflow
+          child: Text(
+            'Tap the camera button to scan a plant',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 11, // Reduced from 12
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2, // Added maxLines
+            overflow: TextOverflow.ellipsis, // Added overflow handling
           ),
-          textAlign: TextAlign.center,
         ),
       ],
     );

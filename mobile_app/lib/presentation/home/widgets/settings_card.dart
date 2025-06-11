@@ -43,7 +43,7 @@ class _SettingsCardState extends State<SettingsCard> {
         
         return GlassmorphicContainer(
           width: double.infinity,
-          height: 200,
+          height: 220,
           borderRadius: 20,
           blur: 10,
           alignment: Alignment.center,
@@ -215,7 +215,7 @@ class _SettingsCardState extends State<SettingsCard> {
     required Function(double) onChanged,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8), // Reduced from 12
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
@@ -229,52 +229,63 @@ class _SettingsCardState extends State<SettingsCard> {
           Icon(
             icon,
             color: Colors.white,
-            size: 20,
+            size: 18, // Reduced from 20
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+          const SizedBox(height: 4), // Reduced from 8
+          Flexible( // Added Flexible
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14, // Reduced from 16
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 10,
+          const SizedBox(height: 2), // Reduced from 4
+          Flexible( // Added Flexible
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 9, // Reduced from 10
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: Slider(
-              value: double.tryParse(controller.text.replaceAll(suffix, '')) ?? min,
-              min: min,
-              max: max,
-              divisions: (max - min).toInt(),
-              activeColor: Colors.blue,
-              inactiveColor: Colors.white.withOpacity(0.3),
-              onChangeStart: (value) {
-                setState(() {
-                  _isEditing = true;
-                });
-              },
-              onChanged: (value) {
-                setState(() {
-                  controller.text = value.toInt().toString();
-                });
-              },
-              onChangeEnd: (value) {
-                setState(() {
-                  _isEditing = false;
-                });
-                onChanged(value);
-              },
+          const SizedBox(height: 4), // Reduced from 8
+          Flexible( // Added Flexible
+            child: SizedBox(
+              width: double.infinity,
+              height: 20, // Fixed height for slider
+              child: Slider(
+                value: double.tryParse(controller.text.replaceAll(suffix, '')) ?? min,
+                min: min,
+                max: max,
+                divisions: (max - min).toInt(),
+                activeColor: Colors.blue,
+                inactiveColor: Colors.white.withOpacity(0.3),
+                onChangeStart: (value) {
+                  setState(() {
+                    _isEditing = true;
+                  });
+                },
+                onChanged: (value) {
+                  setState(() {
+                    controller.text = value.toInt().toString();
+                  });
+                },
+                onChangeEnd: (value) {
+                  setState(() {
+                    _isEditing = false;
+                  });
+                  onChanged(value);
+                },
+              ),
             ),
           ),
         ],

@@ -15,7 +15,7 @@ class PumpControlCard extends StatelessWidget {
         
         return GlassmorphicContainer(
           width: double.infinity,
-          height: 160,
+          height: 180, // Increased height to accommodate content
           borderRadius: 20,
           blur: 10,
           alignment: Alignment.center,
@@ -38,10 +38,12 @@ class PumpControlCard extends StatelessWidget {
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: Column(
+              mainAxisSize: MainAxisSize.min, // Important: prevents overflow
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header Row
                 Row(
                   children: [
                     Icon(
@@ -86,46 +88,51 @@ class PumpControlCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: Row(
-                    children: [
-                      // Manual Control
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
-                            ),
+                
+                const SizedBox(height: 16),
+                
+                // Control Sections
+                Row(
+                  children: [
+                    // Manual Control Section
+                    Expanded(
+                      child: Container(
+                        height: 100, // Fixed height to prevent overflow
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Manual Control',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Manual Control',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
                               ),
-                              const SizedBox(height: 12),
-                              if (isLoading)
-                                const SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
+                              textAlign: TextAlign.center,
+                            ),
+                            if (isLoading)
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
                                   ),
-                                )
-                              else
-                                Switch(
+                                ),
+                              )
+                            else
+                              Transform.scale(
+                                scale: 0.8,
+                                child: Switch(
                                   value: pumpStatus,
                                   onChanged: (value) {
                                     provider.controlPump(isOn: value);
@@ -135,57 +142,60 @@ class PumpControlCard extends StatelessWidget {
                                   inactiveThumbColor: Colors.grey,
                                   inactiveTrackColor: Colors.grey.withOpacity(0.3),
                                 ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      // Quick Actions
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
+                    ),
+                    
+                    const SizedBox(width: 12),
+                    
+                    // Quick Actions Section
+                    Expanded(
+                      child: Container(
+                        height: 100, // Fixed height to prevent overflow
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Quick Actions',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Quick Actions',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                _buildQuickActionButton(
+                                  icon: Icons.play_arrow,
+                                  label: '30s',
+                                  onTap: () => provider.sendManualCommand('pump_30s', {'duration': 30}),
+                                  isLoading: isLoading,
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  _buildQuickActionButton(
-                                    icon: Icons.play_arrow,
-                                    label: '30s',
-                                    onTap: () => provider.sendManualCommand('pump_30s', {'duration': 30}),
-                                    isLoading: isLoading,
-                                  ),
-                                  _buildQuickActionButton(
-                                    icon: Icons.timer,
-                                    label: '60s',
-                                    onTap: () => provider.sendManualCommand('pump_60s', {'duration': 60}),
-                                    isLoading: isLoading,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                                _buildQuickActionButton(
+                                  icon: Icons.timer,
+                                  label: '60s',
+                                  onTap: () => provider.sendManualCommand('pump_60s', {'duration': 60}),
+                                  isLoading: isLoading,
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -204,8 +214,8 @@ class PumpControlCard extends StatelessWidget {
     return GestureDetector(
       onTap: isLoading ? null : onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 36, // Slightly smaller to fit better
+        height: 36,
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
@@ -221,9 +231,9 @@ class PumpControlCard extends StatelessWidget {
               color: isLoading 
                   ? Colors.white.withOpacity(0.5)
                   : Colors.white,
-              size: 16,
+              size: 14, // Smaller icon
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 1),
             Text(
               label,
               style: TextStyle(
