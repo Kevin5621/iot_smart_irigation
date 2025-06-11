@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+tensorflow
+pillow
+numpy
+opencv-python
+lime
+shap
+scikit-image
+matplotlib
