@@ -95,10 +95,10 @@ class AppProvider extends ChangeNotifier {
     }
   }
   
-  Future<void> classifyPlant(File imageFile) async {
+  Future<void> classifyPlant(dynamic imageData) async {
     _setLoading(true);
     try {
-      final plant = await _plantService.classifyPlant(imageFile);
+      final plant = await _plantService.classifyPlant(imageData);
       if (plant != null) {
         _currentPlant = plant;
         // Send plant data to IoT device

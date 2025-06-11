@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -38,18 +39,17 @@ class _HomePageState extends State<HomePage> {
       );
       
       if (image != null) {
-        // Untuk web, kita perlu menangani XFile secara berbeda
-        File imageFile;
-        if (kIsWeb) {
-          // Untuk web, buat File dari bytes
-          final bytes = await image.readAsBytes();
-          imageFile = File.fromRawPath(bytes);
-        } else {
-          imageFile = File(image.path);
-        }
-        
+        // Platform-specific image handling
         if (mounted) {
-          await context.read<AppProvider>().classifyPlant(imageFile);
+          if (kIsWeb) {
+            // Untuk web, gunakan bytes langsung
+            final bytes = await image.readAsBytes();
+            await context.read<AppProvider>().classifyPlant(bytes);
+          } else {
+            // Untuk mobile/desktop, gunakan File
+            final imageFile = File(image.path);
+            await context.read<AppProvider>().classifyPlant(imageFile);
+          }
         }
       }
     } catch (e) {
@@ -74,18 +74,17 @@ class _HomePageState extends State<HomePage> {
       );
       
       if (image != null) {
-        // Untuk web, kita perlu menangani XFile secara berbeda
-        File imageFile;
-        if (kIsWeb) {
-          // Untuk web, buat File dari bytes
-          final bytes = await image.readAsBytes();
-          imageFile = File.fromRawPath(bytes);
-        } else {
-          imageFile = File(image.path);
-        }
-        
+        // Platform-specific image handling
         if (mounted) {
-          await context.read<AppProvider>().classifyPlant(imageFile);
+          if (kIsWeb) {
+            // Untuk web, gunakan bytes langsung
+            final bytes = await image.readAsBytes();
+            await context.read<AppProvider>().classifyPlant(bytes);
+          } else {
+            // Untuk mobile/desktop, gunakan File
+            final imageFile = File(image.path);
+            await context.read<AppProvider>().classifyPlant(imageFile);
+          }
         }
       }
     } catch (e) {

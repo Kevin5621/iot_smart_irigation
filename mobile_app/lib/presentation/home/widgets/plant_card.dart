@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:glassmorphism/glassmorphism.dart';
@@ -109,20 +110,7 @@ class PlantCard extends StatelessWidget {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.file(
-                    File(plant.imageUrl!),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey.withOpacity(0.3),
-                        child: const Icon(
-                          Icons.image_not_supported,
-                          color: Colors.white54,
-                          size: 30,
-                        ),
-                      );
-                    },
-                  ),
+                  child: _buildPlantImage(plant.imageUrl!),
                 ),
               ),
             const SizedBox(width: 16),
@@ -223,6 +211,36 @@ class PlantCard extends StatelessWidget {
     );
   }
   
+  Widget _buildPlantImage(String imageUrl) {
+    if (kIsWeb) {
+      // For web platform, show a placeholder icon since we can't display file images
+      return Container(
+        color: Colors.green.withOpacity(0.3),
+        child: const Icon(
+          Icons.eco,
+          color: Colors.white,
+          size: 30,
+        ),
+      );
+    } else {
+      // For mobile/desktop platforms, use Image.file
+      return Image.file(
+        File(imageUrl),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey.withOpacity(0.3),
+            child: const Icon(
+              Icons.image_not_supported,
+              color: Colors.white54,
+              size: 30,
+            ),
+          );
+        },
+      );
+    }
+  }
+
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);

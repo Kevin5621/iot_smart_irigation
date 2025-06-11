@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:smart_irigation/entities/entities.dart';
@@ -7,31 +8,32 @@ import 'package:uuid/uuid.dart';
 
 class PlantClassificationService {
   // Ganti dari 127.0.0.1 ke IP komputer Anda
-  static const String _baseUrl = 'http://192.168.1.7:8000';
+  static const String _baseUrl = 'http://localhost:8000';
   final _uuid = const Uuid();
   
-  Future<PlantEntity?> classifyPlant(File imageFile) async {
+  Future<PlantEntity?> classifyPlant(dynamic imageData) async {
     try {
       final uri = Uri.parse('$_baseUrl/predict');
       final request = http.MultipartRequest('POST', uri);
       
       // Platform-specific file handling
-      if (kIsWeb) {
-        // For web platform - menggunakan XFile untuk web
-        final bytes = await imageFile.readAsBytes();
+      if (kIsWeb && imageData is Uint8List) {
+        // For web platform - menggunakan bytes langsung
         final multipartFile = http.MultipartFile.fromBytes(
           'file',
-          bytes,
+          imageData,
           filename: 'image.jpg',
         );
         request.files.add(multipartFile);
-      } else {
+      } else if (imageData is File) {
         // For mobile/desktop platforms
         final multipartFile = await http.MultipartFile.fromPath(
           'file',
-          imageFile.path,
+          imageData.path,
         );
         request.files.add(multipartFile);
+      } else {
+        throw Exception('Unsupported image data type');
       }
       
       // Set timeout untuk request
@@ -51,7 +53,7 @@ class PlantClassificationService {
             type: data['prediction'],
             confidence: data['confidence'],
             detectedAt: DateTime.now(),
-            imageUrl: kIsWeb ? 'web_image' : imageFile.path,
+            imageUrl: (kIsWeb && imageData is Uint8List) ? 'web_image' : (imageData as File).path,
           );
         } else {
           throw Exception('Failed to classify plant: ${response.statusCode} - ${response.body}');
@@ -64,26 +66,27 @@ class PlantClassificationService {
     }
   }
   
-  Future<String?> explainWithLime(File imageFile) async {
+  Future<String?> explainWithLime(dynamic imageData) async {
     try {
       final uri = Uri.parse('$_baseUrl/explain/lime');
       final request = http.MultipartRequest('POST', uri);
       
       // Platform-specific file handling
-      if (kIsWeb) {
-        final bytes = await imageFile.readAsBytes();
+      if (kIsWeb && imageData is Uint8List) {
         final multipartFile = http.MultipartFile.fromBytes(
           'file',
-          bytes,
+          imageData,
           filename: 'image.jpg',
         );
         request.files.add(multipartFile);
-      } else {
+      } else if (imageData is File) {
         final multipartFile = await http.MultipartFile.fromPath(
           'file',
-          imageFile.path,
+          imageData.path,
         );
         request.files.add(multipartFile);
+      } else {
+        throw Exception('Unsupported image data type');
       }
       
       final client = http.Client();
@@ -107,26 +110,27 @@ class PlantClassificationService {
     }
   }
   
-  Future<String?> explainWithShap(File imageFile) async {
+  Future<String?> explainWithShap(dynamic imageData) async {
     try {
       final uri = Uri.parse('$_baseUrl/explain/shap');
       final request = http.MultipartRequest('POST', uri);
       
       // Platform-specific file handling
-      if (kIsWeb) {
-        final bytes = await imageFile.readAsBytes();
+      if (kIsWeb && imageData is Uint8List) {
         final multipartFile = http.MultipartFile.fromBytes(
           'file',
-          bytes,
+          imageData,
           filename: 'image.jpg',
         );
         request.files.add(multipartFile);
-      } else {
+      } else if (imageData is File) {
         final multipartFile = await http.MultipartFile.fromPath(
           'file',
-          imageFile.path,
+          imageData.path,
         );
         request.files.add(multipartFile);
+      } else {
+        throw Exception('Unsupported image data type');
       }
       
       final client = http.Client();
