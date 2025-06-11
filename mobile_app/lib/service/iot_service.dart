@@ -3,6 +3,8 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'package:smart_irigation/entities/entities.dart';
+import 'package:smart_irigation/service/plant_classification_service.dart';
 
 class IoTService {
   final String _broker = 'broker.hivemq.com';
@@ -14,11 +16,15 @@ class IoTService {
   final _pumpStatusController = StreamController<bool>.broadcast();
   final _settingsController = StreamController<Map<String, dynamic>>.broadcast();
   final _deviceStatusController = StreamController<bool>.broadcast();
+  final _sensorDataController = StreamController<SensorDataEntity>.broadcast();
+  final _plantDataController = StreamController<PlantEntity>.broadcast();
 
   Stream<double> get moistureLevelStream => _moistureLevelController.stream;
   Stream<bool> get pumpStatusStream => _pumpStatusController.stream;
   Stream<Map<String, dynamic>> get settingsStream => _settingsController.stream;
   Stream<bool> get deviceStatusStream => _deviceStatusController.stream;
+  Stream<SensorDataEntity> get sensorDataStream => _sensorDataController.stream;
+  Stream<PlantEntity> get plantDataStream => _plantDataController.stream;
 
   // Default settings
   final Map<String, dynamic> _currentSettings = {
@@ -54,9 +60,12 @@ class IoTService {
     try {
       await _client.connect();
       
-      // Subscribe ke topik moisture, pump status, dan settings
+      // Subscribe ke topik moisture, pump status, sensor data, dan settings
       _client.subscribe('smart_irrigation/moisture', MqttQos.atMostOnce);
       _client.subscribe('smart_irrigation/pump_status', MqttQos.atMostOnce);
+      _client.subscribe('smart_irrigation/sensor_data', MqttQos.atMostOnce);
+      _client.subscribe('smart_irrigation/temperature', MqttQos.atMostOnce);
+      _client.subscribe('smart_irrigation/humidity', MqttQos.atMostOnce);
 
       // Notify the device is online
       _deviceStatusController.add(true);
@@ -75,6 +84,14 @@ class IoTService {
           }
         } else if (c[0].topic == 'smart_irrigation/pump_status') {
           _pumpStatusController.add(payload == 'ON');
+        } else if (c[0].topic == 'smart_irrigation/sensor_data') {
+          try {
+            final data = jsonDecode(payload);
+            final sensorData = SensorDataEntity.fromJson(data);
+            _sensorDataController.add(sensorData);
+          } catch (e) {
+            debugPrint('Error parsing sensor data: $e');
+          }
         }
       });
     } catch (e) {
@@ -131,6 +148,58 @@ class IoTService {
     return Map.from(_currentSettings);
   }
 
+  // Mengirim data plant classification ke IoT device
+  void sendPlantClassificationData(PlantEntity plant) {
+    final builder = MqttClientPayloadBuilder();
+    
+    final plantData = {
+      'plantType': plant.type,
+      'plantName': plant.name,
+      'confidence': plant.confidence,
+      'detectedAt': plant.detectedAt.toIso8601String(),
+    };
+
+    builder.addString(jsonEncode(plantData));
+    
+    _client.publishMessage(
+      'smart_irrigation/plant_data', 
+      MqttQos.atLeastOnce, 
+      builder.payload!
+    );
+
+    // Update local plant data stream
+    _plantDataController.add(plant);
+    
+    // Auto-update irrigation settings based on plant type
+    final plantClassificationService = PlantClassificationService();
+    final newSettings = plantClassificationService.getIrrigationSettings(plant.type);
+    updatePumpSettings(
+      automaticMode: newSettings['automaticMode'],
+      lowerThreshold: newSettings['lowerThreshold'],
+      upperThreshold: newSettings['upperThreshold'],
+      pumpDuration: newSettings['pumpDuration'],
+    );
+  }
+
+  // Mengirim command manual ke IoT device
+  void sendManualCommand(String command, Map<String, dynamic> data) {
+    final builder = MqttClientPayloadBuilder();
+    
+    final commandData = {
+      'command': command,
+      'data': data,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+
+    builder.addString(jsonEncode(commandData));
+    
+    _client.publishMessage(
+      'smart_irrigation/manual_command', 
+      MqttQos.atLeastOnce, 
+      builder.payload!
+    );
+  }
+
   void _onConnected() {
     debugPrint('Connected to MQTT broker');
     // Ensure the device is online when connected
@@ -153,5 +222,7 @@ class IoTService {
     _pumpStatusController.close();
     _settingsController.close();
     _deviceStatusController.close();
+    _sensorDataController.close();
+    _plantDataController.close();
   }
 }
