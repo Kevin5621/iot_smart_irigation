@@ -6,7 +6,8 @@ import 'package:smart_irigation/entities/entities.dart';
 import 'package:uuid/uuid.dart';
 
 class PlantClassificationService {
-  static const String _baseUrl = 'http://127.0.0.1:8000/';
+  // Ganti dari 127.0.0.1 ke IP komputer Anda
+  static const String _baseUrl = 'http://192.168.1.7:8000';
   final _uuid = const Uuid();
   
   Future<PlantEntity?> classifyPlant(File imageFile) async {
@@ -16,7 +17,7 @@ class PlantClassificationService {
       
       // Platform-specific file handling
       if (kIsWeb) {
-        // For web platform
+        // For web platform - menggunakan XFile untuk web
         final bytes = await imageFile.readAsBytes();
         final multipartFile = http.MultipartFile.fromBytes(
           'file',
@@ -33,24 +34,30 @@ class PlantClassificationService {
         request.files.add(multipartFile);
       }
       
+      // Set timeout untuk request
       final client = http.Client();
-      final streamedResponse = await client.send(request);
-      final response = await http.Response.fromStream(streamedResponse);
-      client.close();
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        
-        return PlantEntity(
-          id: _uuid.v4(),
-          name: data['prediction'],
-          type: data['prediction'],
-          confidence: data['confidence'],
-          detectedAt: DateTime.now(),
-          imageUrl: imageFile.path,
+      try {
+        final streamedResponse = await client.send(request).timeout(
+          const Duration(seconds: 30),
         );
-      } else {
-        throw Exception('Failed to classify plant: ${response.statusCode}');
+        final response = await http.Response.fromStream(streamedResponse);
+        
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          
+          return PlantEntity(
+            id: _uuid.v4(),
+            name: data['prediction'],
+            type: data['prediction'],
+            confidence: data['confidence'],
+            detectedAt: DateTime.now(),
+            imageUrl: kIsWeb ? 'web_image' : imageFile.path,
+          );
+        } else {
+          throw Exception('Failed to classify plant: ${response.statusCode} - ${response.body}');
+        }
+      } finally {
+        client.close();
       }
     } catch (e) {
       throw Exception('Error classifying plant: $e');
@@ -80,15 +87,20 @@ class PlantClassificationService {
       }
       
       final client = http.Client();
-      final streamedResponse = await client.send(request);
-      final response = await http.Response.fromStream(streamedResponse);
-      client.close();
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['message'];
-      } else {
-        throw Exception('Failed to get LIME explanation: ${response.statusCode}');
+      try {
+        final streamedResponse = await client.send(request).timeout(
+          const Duration(seconds: 30),
+        );
+        final response = await http.Response.fromStream(streamedResponse);
+        
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          return data['message'];
+        } else {
+          throw Exception('Failed to get LIME explanation: ${response.statusCode} - ${response.body}');
+        }
+      } finally {
+        client.close();
       }
     } catch (e) {
       throw Exception('Error getting LIME explanation: $e');
@@ -118,15 +130,20 @@ class PlantClassificationService {
       }
       
       final client = http.Client();
-      final streamedResponse = await client.send(request);
-      final response = await http.Response.fromStream(streamedResponse);
-      client.close();
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['message'];
-      } else {
-        throw Exception('Failed to get SHAP explanation: ${response.statusCode}');
+      try {
+        final streamedResponse = await client.send(request).timeout(
+          const Duration(seconds: 30),
+        );
+        final response = await http.Response.fromStream(streamedResponse);
+        
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          return data['message'];
+        } else {
+          throw Exception('Failed to get SHAP explanation: ${response.statusCode} - ${response.body}');
+        }
+      } finally {
+        client.close();
       }
     } catch (e) {
       throw Exception('Error getting SHAP explanation: $e');

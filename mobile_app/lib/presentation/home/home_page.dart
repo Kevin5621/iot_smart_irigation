@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -37,7 +38,16 @@ class _HomePageState extends State<HomePage> {
       );
       
       if (image != null) {
-        final File imageFile = File(image.path);
+        // Untuk web, kita perlu menangani XFile secara berbeda
+        File imageFile;
+        if (kIsWeb) {
+          // Untuk web, buat File dari bytes
+          final bytes = await image.readAsBytes();
+          imageFile = File.fromRawPath(bytes);
+        } else {
+          imageFile = File(image.path);
+        }
+        
         if (mounted) {
           await context.read<AppProvider>().classifyPlant(imageFile);
         }
@@ -64,7 +74,16 @@ class _HomePageState extends State<HomePage> {
       );
       
       if (image != null) {
-        final File imageFile = File(image.path);
+        // Untuk web, kita perlu menangani XFile secara berbeda
+        File imageFile;
+        if (kIsWeb) {
+          // Untuk web, buat File dari bytes
+          final bytes = await image.readAsBytes();
+          imageFile = File.fromRawPath(bytes);
+        } else {
+          imageFile = File(image.path);
+        }
+        
         if (mounted) {
           await context.read<AppProvider>().classifyPlant(imageFile);
         }
