@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:smart_irigation/entities/entities.dart';
 import 'package:uuid/uuid.dart';
@@ -20,9 +21,11 @@ class PlantClassificationService {
       );
       request.files.add(multipartFile);
       
-      // Kirim request
-      final streamedResponse = await request.send();
+      // Kirim request dengan client yang aman untuk web
+      final client = kIsWeb ? http.Client() : http.Client();
+      final streamedResponse = await client.send(request);
       final response = await http.Response.fromStream(streamedResponse);
+      client.close();
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -54,8 +57,10 @@ class PlantClassificationService {
       );
       request.files.add(multipartFile);
       
-      final streamedResponse = await request.send();
+      final client = kIsWeb ? http.Client() : http.Client();
+      final streamedResponse = await client.send(request);
       final response = await http.Response.fromStream(streamedResponse);
+      client.close();
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -79,8 +84,11 @@ class PlantClassificationService {
       );
       request.files.add(multipartFile);
       
-      final streamedResponse = await request.send();
+      // Kirim request dengan client yang aman untuk web
+      final client = kIsWeb ? http.Client() : http.Client();
+      final streamedResponse = await client.send(request);
       final response = await http.Response.fromStream(streamedResponse);
+      client.close();
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

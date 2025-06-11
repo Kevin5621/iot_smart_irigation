@@ -1,15 +1,29 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:mqtt_client/mqtt_browser_client.dart';
 import 'package:mqtt_client/mqtt_client.dart';
-import 'package:mqtt_client/mqtt_server_client.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:smart_irigation/entities/entities.dart';
 import 'package:smart_irigation/service/plant_classification_service.dart';
 
+// Conditional imports for different platforms
+import 'package:mqtt_client/mqtt_server_client.dart';
+
+// Platform-specific client creation
+MqttClient createMqttClient(String broker, String clientId) {
+  if (kIsWeb) {
+    // For web, we need to use WebSocket connection
+    return MqttBrowserClient('wss://broker.hivemq.com:8884/mqtt', clientId);
+  } else {
+    // For mobile/desktop, use the server client
+    return MqttServerClient(broker, clientId);
+  }
+}
+
 class IoTService {
   final String _broker = 'broker.hivemq.com';
   final String _clientId = 'smart_irrigation_app';
-  late MqttServerClient _client;
+  late MqttClient _client;
   
   // Streams untuk menangani data dari sensor, status pompa, dan status perangkat
   final _moistureLevelController = StreamController<double>.broadcast();
@@ -39,14 +53,12 @@ class IoTService {
   }
 
   void _initializeMQTTClient() {
-    _client = MqttServerClient(_broker, _clientId);
+    _client = createMqttClient(_broker, _clientId);
     _client.logging(on: true);
     _client.keepAlivePeriod = 60;
     _client.onConnected = _onConnected;
     _client.onDisconnected = _onDisconnected;
     _client.onSubscribed = _onSubscribed;
-    _client.logging(on: true);
-    _client.keepAlivePeriod = 60;
 
     final connMessage = MqttConnectMessage()
         .withClientIdentifier(_clientId)
