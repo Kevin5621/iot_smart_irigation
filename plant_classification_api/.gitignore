@@ -1,0 +1,44 @@
+# Python-related
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+*.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Model files
+*.h5
+*.ckpt
+
+# Logs and temporary files
+*.log
+*.csv
+*.sqlite3
+*.db
+*.tmp
+*.bak
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# Docker-related
+*.env
+*.env.*
+docker-compose.override.yml
+
+# Generated files
+lime_result.png
+shap_result.png
