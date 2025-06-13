@@ -12,10 +12,12 @@ class PumpControlCard extends StatelessWidget {
       builder: (context, provider, child) {
         final pumpStatus = provider.pumpStatus;
         final isLoading = provider.isLoading;
-        
+        final isTimerActive = provider.isTimerActive;
+        final timerSeconds = provider.timerSeconds;
+
         return GlassmorphicContainer(
           width: double.infinity,
-          height: 180, // Increased height to accommodate content
+          height: 180,
           borderRadius: 20,
           blur: 10,
           alignment: Alignment.center,
@@ -40,39 +42,37 @@ class PumpControlCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
-              mainAxisSize: MainAxisSize.min, // Important: prevents overflow
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header Row
+                // Header
                 Row(
                   children: [
                     Icon(
                       pumpStatus ? Icons.water_drop : Icons.water_drop_outlined,
                       color: pumpStatus ? Colors.blue : Colors.white,
-                      size: 24,
+                      size: 22,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     const Text(
                       'Pump Control',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const Spacer(),
+                    // Status indicator
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
+                          horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: pumpStatus 
+                        color: pumpStatus
                             ? Colors.green.withOpacity(0.2)
                             : Colors.grey.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: pumpStatus 
+                          color: pumpStatus
                               ? Colors.green.withOpacity(0.5)
                               : Colors.grey.withOpacity(0.5),
                         ),
@@ -81,121 +81,132 @@ class PumpControlCard extends StatelessWidget {
                         pumpStatus ? 'ON' : 'OFF',
                         style: TextStyle(
                           color: pumpStatus ? Colors.green : Colors.grey,
-                          fontSize: 12,
+                          fontSize: 9,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ],
                 ),
-                
                 const SizedBox(height: 16),
-                
-                // Control Sections
-                Row(
-                  children: [
-                    // Manual Control Section
-                    Expanded(
-                      child: Container(
-                        height: 100, // Fixed height to prevent overflow
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Manual Control',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              textAlign: TextAlign.center,
+                // Content area
+                Expanded(
+                  child: Row(
+                    children: [
+                      // Manual Control
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
                             ),
-                            if (isLoading)
-                              const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
-                                  ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'Manual Control',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                              )
-                            else
-                              Transform.scale(
-                                scale: 0.8,
-                                child: Switch(
+                              ),
+                              const SizedBox(height: 12),
+                              // Manual switch with timer info
+                              if (isTimerActive)
+                                Column(
+                                  children: [
+                                    Icon(
+                                      Icons.timer,
+                                      color: Colors.orange,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _formatTime(timerSeconds),
+                                      style: const TextStyle(
+                                        color: Colors.orange,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else
+                                Switch(
                                   value: pumpStatus,
-                                  onChanged: (value) {
-                                    provider.controlPump(isOn: value);
-                                  },
+                                  onChanged: isLoading
+                                      ? null
+                                      : (value) {
+                                          provider.controlPump(isOn: value);
+                                        },
                                   activeColor: Colors.blue,
-                                  activeTrackColor: Colors.blue.withOpacity(0.3),
                                   inactiveThumbColor: Colors.grey,
-                                  inactiveTrackColor: Colors.grey.withOpacity(0.3),
+                                  inactiveTrackColor:
+                                      Colors.grey.withOpacity(0.3),
                                 ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(width: 12),
-                    
-                    // Quick Actions Section
-                    Expanded(
-                      child: Container(
-                        height: 100, // Fixed height to prevent overflow
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
+                            ],
                           ),
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Quick Actions',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                      ),
+                      const SizedBox(width: 12),
+                      // Quick Actions
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'Quick Actions',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                              textAlign: TextAlign.center,
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _buildQuickActionButton(
-                                  icon: Icons.play_arrow,
-                                  label: '30s',
-                                  onTap: () => provider.sendManualCommand('pump_30s', {'duration': 30}),
-                                  isLoading: isLoading,
-                                ),
-                                _buildQuickActionButton(
-                                  icon: Icons.timer,
-                                  label: '60s',
-                                  onTap: () => provider.sendManualCommand('pump_60s', {'duration': 60}),
-                                  isLoading: isLoading,
-                                ),
-                              ],
-                            ),
-                          ],
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  _buildQuickActionButton(
+                                    icon: Icons.timer,
+                                    label: '30s',
+                                    onTap: () {
+                                      provider
+                                          .sendManualCommand('pump_30s', {});
+                                    },
+                                    isLoading: isLoading || isTimerActive,
+                                  ),
+                                  _buildQuickActionButton(
+                                    icon: Icons.timer,
+                                    label: '60s',
+                                    onTap: () {
+                                      provider
+                                          .sendManualCommand('pump_60s', {});
+                                    },
+                                    isLoading: isLoading || isTimerActive,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -204,7 +215,7 @@ class PumpControlCard extends StatelessWidget {
       },
     );
   }
-  
+
   Widget _buildQuickActionButton({
     required IconData icon,
     required String label,
@@ -214,13 +225,17 @@ class PumpControlCard extends StatelessWidget {
     return GestureDetector(
       onTap: isLoading ? null : onTap,
       child: Container(
-        width: 36, // Slightly smaller to fit better
-        height: 36,
+        width: 40,
+        height: 50,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: isLoading
+              ? Colors.grey.withOpacity(0.1)
+              : Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: Colors.white.withOpacity(0.3),
+            color: isLoading
+                ? Colors.grey.withOpacity(0.2)
+                : Colors.white.withOpacity(0.3),
           ),
         ),
         child: Column(
@@ -228,25 +243,27 @@ class PumpControlCard extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isLoading 
-                  ? Colors.white.withOpacity(0.5)
-                  : Colors.white,
-              size: 14, // Smaller icon
+              color: isLoading ? Colors.grey.withOpacity(0.5) : Colors.white,
+              size: 18,
             ),
-            const SizedBox(height: 1),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                color: isLoading 
-                    ? Colors.white.withOpacity(0.5)
-                    : Colors.white,
-                fontSize: 8,
-                fontWeight: FontWeight.w500,
+                color: isLoading ? Colors.grey.withOpacity(0.5) : Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _formatTime(int seconds) {
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 }

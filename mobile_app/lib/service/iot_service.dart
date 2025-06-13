@@ -10,35 +10,41 @@ import 'package:smart_irigation/service/plant_classification_service.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 
 // Platform-specific client creation
-MqttClient createMqttClient(String broker, String clientId) {
+MqttClient createMqttClient(String broker, String clientId, int port) {
   if (kIsWeb) {
-    // For web, we need to use WebSocket connection
-    return MqttBrowserClient('wss://broker.hivemq.com:8884/mqtt', clientId);
+    return MqttBrowserClient('ws://$broker:9001', clientId);
   } else {
-    // For mobile/desktop, use the server client
-    return MqttServerClient(broker, clientId);
+    return MqttServerClient.withPort(broker, clientId, port);
   }
 }
 
 class IoTService {
-  final String _broker = 'broker.hivemq.com';
+  final String _broker = '192.168.18.18';
+  final int _port = 1883;
+  final String _username = 'user';
+  final String _password = 'sehatmu';
   final String _clientId = 'smart_irrigation_app';
   late MqttClient _client;
-  
-  // Streams untuk menangani data dari sensor, status pompa, dan status perangkat
+
+  // Streams
   final _moistureLevelController = StreamController<double>.broadcast();
+  final _temperatureController = StreamController<double>.broadcast();
   final _pumpStatusController = StreamController<bool>.broadcast();
-  final _settingsController = StreamController<Map<String, dynamic>>.broadcast();
+  final _settingsController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final _deviceStatusController = StreamController<bool>.broadcast();
-  final _sensorDataController = StreamController<SensorDataEntity>.broadcast();
   final _plantDataController = StreamController<PlantEntity>.broadcast();
+  final _pumpTimerController =
+      StreamController<int>.broadcast(); // New timer stream
 
   Stream<double> get moistureLevelStream => _moistureLevelController.stream;
+  Stream<double> get temperatureStream => _temperatureController.stream;
   Stream<bool> get pumpStatusStream => _pumpStatusController.stream;
   Stream<Map<String, dynamic>> get settingsStream => _settingsController.stream;
   Stream<bool> get deviceStatusStream => _deviceStatusController.stream;
-  Stream<SensorDataEntity> get sensorDataStream => _sensorDataController.stream;
   Stream<PlantEntity> get plantDataStream => _plantDataController.stream;
+  Stream<int> get pumpTimerStream =>
+      _pumpTimerController.stream; // New timer stream
 
   // Default settings
   final Map<String, dynamic> _currentSettings = {
@@ -48,12 +54,25 @@ class IoTService {
     'pumpDuration': 60.0
   };
 
+  // Current values
+  double _currentMoisture = 0.0;
+  double _currentTemperature = 0.0;
+  bool _currentPumpStatus = false;
+  DateTime _lastMoistureUpdate = DateTime.now();
+  DateTime _lastTemperatureUpdate = DateTime.now();
+  DateTime _lastPumpStatusUpdate = DateTime.now();
+
+  // Timer variables
+  Timer? _pumpTimer;
+  int _currentTimerSeconds = 0;
+  bool _isTimerActive = false;
+
   IoTService() {
     _initializeMQTTClient();
   }
 
   void _initializeMQTTClient() {
-    _client = createMqttClient(_broker, _clientId);
+    _client = createMqttClient(_broker, _clientId, _port);
     _client.logging(on: true);
     _client.keepAlivePeriod = 60;
     _client.onConnected = _onConnected;
@@ -62,6 +81,9 @@ class IoTService {
 
     final connMessage = MqttConnectMessage()
         .withClientIdentifier(_clientId)
+        .authenticateAs(_username, _password)
+        .withWillTopic('smart_irrigation/status')
+        .withWillMessage('offline')
         .startClean()
         .withWillQos(MqttQos.atLeastOnce);
 
@@ -70,100 +92,220 @@ class IoTService {
 
   Future<void> connect() async {
     try {
-      await _client.connect();
-      
-      // Subscribe ke topik moisture, pump status, sensor data, dan settings
-      _client.subscribe('smart_irrigation/moisture', MqttQos.atMostOnce);
-      _client.subscribe('smart_irrigation/pump_status', MqttQos.atMostOnce);
-      _client.subscribe('smart_irrigation/sensor_data', MqttQos.atMostOnce);
-      _client.subscribe('smart_irrigation/temperature', MqttQos.atMostOnce);
-      _client.subscribe('smart_irrigation/humidity', MqttQos.atMostOnce);
+      debugPrint('Attempting to connect to MQTT broker at $_broker:$_port');
+      final status = await _client.connect(_username, _password);
 
-      // Notify the device is online
+      if (status == null || status.state != MqttConnectionState.connected) {
+        debugPrint('MQTT connection failed - status: ${status?.state}');
+        _deviceStatusController.add(false);
+        throw Exception('Failed to connect to MQTT broker');
+      }
+
+      debugPrint('Successfully connected to MQTT broker');
+
+      _client.subscribe('kelembapan_tanah', MqttQos.atMostOnce);
+      _client.subscribe('data_suhu', MqttQos.atMostOnce);
+      _client.subscribe('status', MqttQos.atMostOnce);
+
+      final builder = MqttClientPayloadBuilder();
+      builder.addString('online');
+      _client.publishMessage(
+        'smart_irrigation/status',
+        MqttQos.atLeastOnce,
+        builder.payload!,
+        retain: true,
+      );
+
       _deviceStatusController.add(true);
 
       _client.updates?.listen((List<MqttReceivedMessage> c) {
         final MqttPublishMessage message = c[0].payload as MqttPublishMessage;
-        
-        final String payload = 
+        final String payload =
             const Utf8Decoder().convert(message.payload.message.toList());
 
-        if (c[0].topic == 'smart_irrigation/moisture') {
+        debugPrint('Received message on ${c[0].topic}: $payload');
+
+        if (c[0].topic == 'kelembapan_tanah') {
           try {
-            _moistureLevelController.add(double.parse(payload));
+            final moistureValue = double.parse(payload.trim());
+            _currentMoisture = moistureValue;
+            _lastMoistureUpdate = DateTime.now();
+            _moistureLevelController.add(moistureValue);
           } catch (e) {
             debugPrint('Error parsing moisture level: $e');
           }
-        } else if (c[0].topic == 'smart_irrigation/pump_status') {
-          _pumpStatusController.add(payload == 'ON');
-        } else if (c[0].topic == 'smart_irrigation/sensor_data') {
+        } else if (c[0].topic == 'data_suhu') {
           try {
-            final data = jsonDecode(payload);
-            final sensorData = SensorDataEntity.fromJson(data);
-            _sensorDataController.add(sensorData);
+            final temperatureValue = double.parse(payload.trim());
+            _currentTemperature = temperatureValue;
+            _lastTemperatureUpdate = DateTime.now();
+            _temperatureController.add(temperatureValue);
           } catch (e) {
-            debugPrint('Error parsing sensor data: $e');
+            debugPrint('Error parsing temperature: $e');
+          }
+        } else if (c[0].topic == 'status') {
+          try {
+            final statusValue = payload.trim();
+            bool pumpStatus = false;
+
+            if (statusValue == '1' || statusValue.toUpperCase() == 'ON') {
+              pumpStatus = true;
+            } else if (statusValue == '0' ||
+                statusValue.toUpperCase() == 'OFF') {
+              pumpStatus = false;
+            } else {
+              final intValue = int.tryParse(statusValue);
+              if (intValue != null) {
+                pumpStatus = intValue == 1;
+              }
+            }
+
+            _currentPumpStatus = pumpStatus;
+            _lastPumpStatusUpdate = DateTime.now();
+            _pumpStatusController.add(pumpStatus);
+          } catch (e) {
+            debugPrint('Error parsing pump status: $e');
           }
         }
       });
     } catch (e) {
       debugPrint('Connection error: $e');
-      // In case of an error, mark device as offline
       _deviceStatusController.add(false);
+      rethrow;
     }
   }
 
-  void controlPump({required bool isOn, double? duration}) {
-    final builder = MqttClientPayloadBuilder();
-    
-    final pumpControlMessage = {
-      'status': isOn ? 'ON' : 'OFF',
-      'duration': duration ?? 0.0
-    };
+  // Get current values
+  double get currentMoisture => _currentMoisture;
+  double get currentTemperature => _currentTemperature;
+  bool get currentPumpStatus => _currentPumpStatus;
+  bool get isTimerActive => _isTimerActive;
+  int get currentTimerSeconds => _currentTimerSeconds;
+  DateTime get lastMoistureUpdate => _lastMoistureUpdate;
+  DateTime get lastTemperatureUpdate => _lastTemperatureUpdate;
+  DateTime get lastPumpStatusUpdate => _lastPumpStatusUpdate;
 
-    builder.addString(jsonEncode(pumpControlMessage));
-    
-    _client.publishMessage(
-      'smart_irrigation/pump_control', 
-      MqttQos.atLeastOnce, 
-      builder.payload!
-    );
+  void controlPump({required bool isOn, double? duration}) {
+    if (_client.connectionStatus?.state != MqttConnectionState.connected) {
+      debugPrint('Cannot control pump: MQTT not connected');
+      return;
+    }
+
+    // Cancel any existing timer
+    _cancelTimer();
+
+    final builder = MqttClientPayloadBuilder();
+    final command = isOn ? '1' : '0';
+    builder.addString(command);
+
+    _client.publishMessage('status', MqttQos.atLeastOnce, builder.payload!);
+    debugPrint('Sent pump control to status topic: $command');
   }
 
-  void updatePumpSettings({
-    bool? automaticMode,
-    double? lowerThreshold,
-    double? upperThreshold,
-    double? pumpDuration
-  }) {
-    // Update local settings
-    if (automaticMode != null) _currentSettings['automaticMode'] = automaticMode;
-    if (lowerThreshold != null) _currentSettings['lowerThreshold'] = lowerThreshold;
-    if (upperThreshold != null) _currentSettings['upperThreshold'] = upperThreshold;
+  void startPumpWithTimer(int seconds) {
+    if (_client.connectionStatus?.state != MqttConnectionState.connected) {
+      debugPrint('Cannot start pump timer: MQTT not connected');
+      return;
+    }
+
+    // Cancel any existing timer
+    _cancelTimer();
+
+    // Turn pump ON
+    final builder = MqttClientPayloadBuilder();
+    builder.addString('1');
+    _client.publishMessage('status', MqttQos.atLeastOnce, builder.payload!);
+
+    debugPrint('Started pump timer for $seconds seconds');
+
+    // Start countdown timer
+    _isTimerActive = true;
+    _currentTimerSeconds = seconds;
+    _pumpTimerController.add(_currentTimerSeconds);
+
+    _pumpTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _currentTimerSeconds--;
+      _pumpTimerController.add(_currentTimerSeconds);
+
+      debugPrint('Pump timer: ${_currentTimerSeconds}s remaining');
+
+      if (_currentTimerSeconds <= 0) {
+        // Time's up, turn pump OFF
+        _stopPumpTimer();
+      }
+    });
+  }
+
+  void _stopPumpTimer() {
+    if (_client.connectionStatus?.state == MqttConnectionState.connected) {
+      // Turn pump OFF
+      final builder = MqttClientPayloadBuilder();
+      builder.addString('0');
+      _client.publishMessage('status', MqttQos.atLeastOnce, builder.payload!);
+      debugPrint('Pump timer finished - turned pump OFF');
+    }
+
+    _cancelTimer();
+  }
+
+  void _cancelTimer() {
+    if (_pumpTimer != null) {
+      _pumpTimer!.cancel();
+      _pumpTimer = null;
+    }
+
+    if (_isTimerActive) {
+      _isTimerActive = false;
+      _currentTimerSeconds = 0;
+      _pumpTimerController.add(0);
+      debugPrint('Pump timer cancelled');
+    }
+  }
+
+  void cancelPumpTimer() {
+    _cancelTimer();
+  }
+
+  void updatePumpSettings(
+      {bool? automaticMode,
+      double? lowerThreshold,
+      double? upperThreshold,
+      double? pumpDuration}) {
+    if (_client.connectionStatus?.state != MqttConnectionState.connected) {
+      debugPrint('Cannot update settings: MQTT not connected');
+      return;
+    }
+
+    if (automaticMode != null)
+      _currentSettings['automaticMode'] = automaticMode;
+    if (lowerThreshold != null)
+      _currentSettings['lowerThreshold'] = lowerThreshold;
+    if (upperThreshold != null)
+      _currentSettings['upperThreshold'] = upperThreshold;
     if (pumpDuration != null) _currentSettings['pumpDuration'] = pumpDuration;
 
-    // Kirim ke perangkat IoT
+    _currentSettings['timestamp'] = DateTime.now().toIso8601String();
+
     final builder = MqttClientPayloadBuilder();
     builder.addString(jsonEncode(_currentSettings));
     _client.publishMessage(
-      'smart_irrigation/pump_settings', 
-      MqttQos.atLeastOnce, 
-      builder.payload!
-    );
+        'pump_settings', MqttQos.atLeastOnce, builder.payload!);
 
-    // Kirim update ke stream
     _settingsController.add(_currentSettings);
+    debugPrint('Sent pump settings: ${jsonEncode(_currentSettings)}');
   }
 
-  // Method untuk mendapatkan settings saat ini
   Map<String, dynamic> getCurrentSettings() {
     return Map.from(_currentSettings);
   }
 
-  // Mengirim data plant classification ke IoT device
   void sendPlantClassificationData(PlantEntity plant) {
+    if (_client.connectionStatus?.state != MqttConnectionState.connected) {
+      debugPrint('Cannot send plant data: MQTT not connected');
+      return;
+    }
+
     final builder = MqttClientPayloadBuilder();
-    
     final plantData = {
       'plantType': plant.type,
       'plantName': plant.name,
@@ -172,19 +314,14 @@ class IoTService {
     };
 
     builder.addString(jsonEncode(plantData));
-    
-    _client.publishMessage(
-      'smart_irrigation/plant_data', 
-      MqttQos.atLeastOnce, 
-      builder.payload!
-    );
-
-    // Update local plant data stream
+    _client.publishMessage('plant_data', MqttQos.atLeastOnce, builder.payload!);
     _plantDataController.add(plant);
-    
-    // Auto-update irrigation settings based on plant type
+
+    debugPrint('Sent plant data: ${jsonEncode(plantData)}');
+
     final plantClassificationService = PlantClassificationService();
-    final newSettings = plantClassificationService.getIrrigationSettings(plant.type);
+    final newSettings =
+        plantClassificationService.getIrrigationSettings(plant.type);
     updatePumpSettings(
       automaticMode: newSettings['automaticMode'],
       lowerThreshold: newSettings['lowerThreshold'],
@@ -193,35 +330,44 @@ class IoTService {
     );
   }
 
-  // Mengirim command manual ke IoT device
   void sendManualCommand(String command, Map<String, dynamic> data) {
+    if (_client.connectionStatus?.state != MqttConnectionState.connected) {
+      debugPrint('Cannot send manual command: MQTT not connected');
+      return;
+    }
+
+    // Handle quick actions with timer
+    if (command == 'pump_30s') {
+      startPumpWithTimer(30);
+      return;
+    } else if (command == 'pump_60s') {
+      startPumpWithTimer(60);
+      return;
+    }
+
+    // For other commands
     final builder = MqttClientPayloadBuilder();
-    
     final commandData = {
       'command': command,
       'data': data,
       'timestamp': DateTime.now().toIso8601String(),
     };
-
     builder.addString(jsonEncode(commandData));
-    
     _client.publishMessage(
-      'smart_irrigation/manual_command', 
-      MqttQos.atLeastOnce, 
-      builder.payload!
-    );
+        'manual_command', MqttQos.atLeastOnce, builder.payload!);
+
+    debugPrint('Sent manual command: $command');
   }
 
   void _onConnected() {
-    debugPrint('Connected to MQTT broker');
-    // Ensure the device is online when connected
+    debugPrint('Connected to MQTT broker $_broker:$_port');
     _deviceStatusController.add(true);
   }
 
   void _onDisconnected() {
     debugPrint('Disconnected from MQTT broker');
-    // Ensure the device is offline when disconnected
     _deviceStatusController.add(false);
+    _cancelTimer(); // Cancel timer if disconnected
   }
 
   void _onSubscribed(String topic) {
@@ -229,12 +375,27 @@ class IoTService {
   }
 
   void dispose() {
+    // Cancel timer before disposing
+    _cancelTimer();
+
+    if (_client.connectionStatus?.state == MqttConnectionState.connected) {
+      final builder = MqttClientPayloadBuilder();
+      builder.addString('offline');
+      _client.publishMessage(
+        'smart_irrigation/status',
+        MqttQos.atLeastOnce,
+        builder.payload!,
+        retain: true,
+      );
+    }
+
     _client.disconnect();
     _moistureLevelController.close();
+    _temperatureController.close();
     _pumpStatusController.close();
     _settingsController.close();
     _deviceStatusController.close();
-    _sensorDataController.close();
     _plantDataController.close();
+    _pumpTimerController.close(); // Close timer stream
   }
 }
