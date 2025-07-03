@@ -60,29 +60,6 @@ class SensorCard extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const Spacer(),
-                    if (hasData)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.green.withOpacity(0.5),
-                          ),
-                        ),
-                        child: const Text(
-                          'Live',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 const SizedBox(height: 12), // Reduced spacing

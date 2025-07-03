@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:smart_irigation/entities/entities.dart';
 import 'package:smart_irigation/service/iot_service.dart';
@@ -20,6 +19,7 @@ class AppProvider extends ChangeNotifier {
   double _currentMoisture = 0.0;
   double _currentTemperature = 0.0;
   bool _pumpStatus = false;
+  bool _pumpMode = false; // false = manual, true = automatic
   Map<String, dynamic> _irrigationSettings = {};
 
   // Timer state
@@ -34,6 +34,7 @@ class AppProvider extends ChangeNotifier {
   double get currentMoisture => _currentMoisture;
   double get currentTemperature => _currentTemperature;
   bool get pumpStatus => _pumpStatus;
+  bool get pumpMode => _pumpMode; // false = manual, true = automatic
   Map<String, dynamic> get irrigationSettings => _irrigationSettings;
   IrrigationSettings get currentSettings =>
       IrrigationSettings.fromMap(_irrigationSettings);
@@ -46,6 +47,10 @@ class AppProvider extends ChangeNotifier {
 
   AppProvider() {
     _initializeServices();
+    // Auto connect saat startup dengan delay
+    Future.delayed(const Duration(milliseconds: 500), () {
+      connectToIoT();
+    });
   }
 
   void _initializeServices() {
@@ -67,6 +72,11 @@ class AppProvider extends ChangeNotifier {
 
     _iotService.pumpStatusStream.listen((status) {
       _pumpStatus = status;
+      notifyListeners();
+    });
+
+    _iotService.pumpModeStream.listen((mode) {
+      _pumpMode = mode;
       notifyListeners();
     });
 
@@ -106,7 +116,9 @@ class AppProvider extends ChangeNotifier {
       await _iotService.connect();
       _clearError();
     } catch (e) {
-      _setError('Failed to connect to IoT device: $e');
+      // Jangan langsung throw error, tapi set sebagai warning
+      _setError('Failed to connect to IoT device. Check connection settings.');
+      debugPrint('IoT connection failed: $e');
     } finally {
       _setLoading(false);
     }
@@ -118,7 +130,6 @@ class AppProvider extends ChangeNotifier {
       final plant = await _plantService.classifyPlant(imageData);
       if (plant != null) {
         _currentPlant = plant;
-        // Send plant data to IoT device
         _iotService.sendPlantClassificationData(plant);
         _clearError();
       } else {
@@ -137,6 +148,15 @@ class AppProvider extends ChangeNotifier {
       _clearError();
     } catch (e) {
       _setError('Failed to control pump: $e');
+    }
+  }
+
+  void setPumpMode(bool isAutomatic) {
+    try {
+      _iotService.setPumpMode(isAutomatic);
+      _clearError();
+    } catch (e) {
+      _setError('Failed to set pump mode: $e');
     }
   }
 
@@ -165,7 +185,6 @@ class AppProvider extends ChangeNotifier {
     double? pumpDuration,
   }) async {
     try {
-      // Update local settings
       if (automaticMode != null) {
         await _settingsService.saveAutomaticMode(automaticMode);
       }
@@ -179,7 +198,6 @@ class AppProvider extends ChangeNotifier {
         await _settingsService.savePumpDuration(pumpDuration);
       }
 
-      // Update IoT device settings
       _iotService.updatePumpSettings(
         automaticMode: automaticMode,
         lowerThreshold: lowerThreshold,
@@ -187,7 +205,6 @@ class AppProvider extends ChangeNotifier {
         pumpDuration: pumpDuration,
       );
 
-      // Reload settings
       await _loadSettings();
       _clearError();
     } catch (e) {
@@ -201,6 +218,51 @@ class AppProvider extends ChangeNotifier {
       _clearError();
     } catch (e) {
       _setError('Failed to send command: $e');
+    }
+  }
+
+  Future<void> updateConnectionConfig({
+    required String broker,
+    required int port,
+    required String username,
+    required String password,
+  }) async {
+    _setLoading(true);
+    try {
+      await _iotService.updateConfiguration(
+        broker: broker,
+        port: port,
+        username: username,
+        password: password,
+      );
+
+      // Auto reconnect with new configuration
+      await connectToIoT();
+      _clearError();
+    } catch (e) {
+      _setError('Failed to update connection config: $e');
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> testConnection({
+    required String broker,
+    required int port,
+    required String username,
+    required String password,
+  }) async {
+    try {
+      return await _iotService.testConnection(
+        broker: broker,
+        port: port,
+        username: username,
+        password: password,
+      );
+    } catch (e) {
+      _setError('Connection test failed: $e');
+      return false;
     }
   }
 

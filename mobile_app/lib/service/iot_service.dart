@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:smart_irigation/entities/entities.dart';
 import 'package:smart_irigation/service/plant_classification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Conditional imports for different platforms
 import 'package:mqtt_client/mqtt_server_client.dart';
@@ -19,12 +20,19 @@ MqttClient createMqttClient(String broker, String clientId, int port) {
 }
 
 class IoTService {
-  final String _broker = '192.168.18.18';
-  final int _port = 1883;
-  final String _username = 'user';
-  final String _password = 'sehatmu';
+  // Default configuration
+  String _broker = '192.168.18.91';
+  int _port = 1883;
+  String _username = 'user';
+  String _password = 'sehatmu';
   final String _clientId = 'smart_irrigation_app';
   late MqttClient _client;
+
+  // Configuration keys for SharedPreferences
+  static const String _brokerKey = 'mqtt_broker';
+  static const String _portKey = 'mqtt_port';
+  static const String _usernameKey = 'mqtt_username';
+  static const String _passwordKey = 'mqtt_password';
 
   // Streams
   final _moistureLevelController = StreamController<double>.broadcast();
@@ -34,8 +42,9 @@ class IoTService {
       StreamController<Map<String, dynamic>>.broadcast();
   final _deviceStatusController = StreamController<bool>.broadcast();
   final _plantDataController = StreamController<PlantEntity>.broadcast();
-  final _pumpTimerController =
-      StreamController<int>.broadcast(); // New timer stream
+  final _pumpTimerController = StreamController<int>.broadcast();
+  final _pumpModeController =
+      StreamController<bool>.broadcast(); // New pump mode stream
 
   Stream<double> get moistureLevelStream => _moistureLevelController.stream;
   Stream<double> get temperatureStream => _temperatureController.stream;
@@ -43,8 +52,9 @@ class IoTService {
   Stream<Map<String, dynamic>> get settingsStream => _settingsController.stream;
   Stream<bool> get deviceStatusStream => _deviceStatusController.stream;
   Stream<PlantEntity> get plantDataStream => _plantDataController.stream;
-  Stream<int> get pumpTimerStream =>
-      _pumpTimerController.stream; // New timer stream
+  Stream<int> get pumpTimerStream => _pumpTimerController.stream;
+  Stream<bool> get pumpModeStream =>
+      _pumpModeController.stream; // New pump mode stream
 
   // Default settings
   final Map<String, dynamic> _currentSettings = {
@@ -58,6 +68,7 @@ class IoTService {
   double _currentMoisture = 0.0;
   double _currentTemperature = 0.0;
   bool _currentPumpStatus = false;
+  bool _currentPumpMode = false; // false = manual, true = automatic
   DateTime _lastMoistureUpdate = DateTime.now();
   DateTime _lastTemperatureUpdate = DateTime.now();
   DateTime _lastPumpStatusUpdate = DateTime.now();
@@ -68,7 +79,93 @@ class IoTService {
   bool _isTimerActive = false;
 
   IoTService() {
-    _initializeMQTTClient();
+    _loadConfiguration().then((_) => _initializeMQTTClient());
+  }
+
+  Future<void> _loadConfiguration() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _broker = prefs.getString(_brokerKey) ?? _broker;
+      _port = prefs.getInt(_portKey) ?? _port;
+      _username = prefs.getString(_usernameKey) ?? _username;
+      _password = prefs.getString(_passwordKey) ?? _password;
+
+      debugPrint('Loaded configuration: $_broker:$_port');
+    } catch (e) {
+      debugPrint('Error loading configuration: $e');
+    }
+  }
+
+  Future<void> updateConfiguration({
+    required String broker,
+    required int port,
+    required String username,
+    required String password,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_brokerKey, broker);
+      await prefs.setInt(_portKey, port);
+      await prefs.setString(_usernameKey, username);
+      await prefs.setString(_passwordKey, password);
+
+      _broker = broker;
+      _port = port;
+      _username = username;
+      _password = password;
+
+      debugPrint('Configuration updated: $_broker:$_port');
+
+      // Reinitialize MQTT client with new configuration
+      _initializeMQTTClient();
+    } catch (e) {
+      debugPrint('Error saving configuration: $e');
+      throw Exception('Failed to save configuration');
+    }
+  }
+
+  Map<String, dynamic> getConnectionConfig() {
+    return {
+      'broker': _broker,
+      'port': _port,
+      'username': _username,
+      'password': _password,
+    };
+  }
+
+  Future<bool> testConnection({
+    required String broker,
+    required int port,
+    required String username,
+    required String password,
+  }) async {
+    try {
+      final testClient = createMqttClient(broker, '${_clientId}_test', port);
+      testClient.logging(on: false);
+      testClient.keepAlivePeriod = 20;
+
+      final connMessage = MqttConnectMessage()
+          .withClientIdentifier('${_clientId}_test')
+          .authenticateAs(username, password)
+          .startClean()
+          .withWillQos(MqttQos.atLeastOnce);
+
+      testClient.connectionMessage = connMessage;
+
+      final status = await testClient.connect(username, password);
+
+      if (status?.state == MqttConnectionState.connected) {
+        debugPrint('Test connection successful');
+        testClient.disconnect();
+        return true;
+      } else {
+        debugPrint('Test connection failed: ${status?.state}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Test connection error: $e');
+      return false;
+    }
   }
 
   void _initializeMQTTClient() {
@@ -93,12 +190,17 @@ class IoTService {
   Future<void> connect() async {
     try {
       debugPrint('Attempting to connect to MQTT broker at $_broker:$_port');
-      final status = await _client.connect(_username, _password);
+
+      // Set timeout untuk connection
+      final status = await _client
+          .connect(_username, _password)
+          .timeout(const Duration(seconds: 10));
 
       if (status == null || status.state != MqttConnectionState.connected) {
         debugPrint('MQTT connection failed - status: ${status?.state}');
         _deviceStatusController.add(false);
-        throw Exception('Failed to connect to MQTT broker');
+        throw Exception(
+            'Failed to connect to MQTT broker - Check network and broker settings');
       }
 
       debugPrint('Successfully connected to MQTT broker');
@@ -106,15 +208,7 @@ class IoTService {
       _client.subscribe('kelembapan_tanah', MqttQos.atMostOnce);
       _client.subscribe('data_suhu', MqttQos.atMostOnce);
       _client.subscribe('status', MqttQos.atMostOnce);
-
-      final builder = MqttClientPayloadBuilder();
-      builder.addString('online');
-      _client.publishMessage(
-        'smart_irrigation/status',
-        MqttQos.atLeastOnce,
-        builder.payload!,
-        retain: true,
-      );
+      _client.subscribe('pump_mode', MqttQos.atMostOnce);
 
       _deviceStatusController.add(true);
 
@@ -166,11 +260,42 @@ class IoTService {
           } catch (e) {
             debugPrint('Error parsing pump status: $e');
           }
+        } else if (c[0].topic == 'pump_mode') {
+          try {
+            final modeValue = payload.trim();
+            bool isAutomatic = false;
+
+            if (modeValue == '1' || modeValue.toUpperCase() == 'AUTO') {
+              isAutomatic = true;
+            } else if (modeValue == '0' ||
+                modeValue.toUpperCase() == 'MANUAL') {
+              isAutomatic = false;
+            } else {
+              final intValue = int.tryParse(modeValue);
+              if (intValue != null) {
+                isAutomatic = intValue == 1;
+              }
+            }
+
+            _currentPumpMode = isAutomatic;
+            _pumpModeController.add(isAutomatic);
+            debugPrint(
+                'Pump mode updated: ${isAutomatic ? 'Automatic (1)' : 'Manual (0)'}');
+          } catch (e) {
+            debugPrint('Error parsing pump mode: $e');
+          }
         }
       });
+    } on TimeoutException {
+      debugPrint('Connection timeout - broker not responding');
+      _deviceStatusController.add(false);
+      throw Exception('Connection timeout - Make sure broker is accessible');
     } catch (e) {
       debugPrint('Connection error: $e');
       _deviceStatusController.add(false);
+      if (e.toString().contains('not known')) {
+        throw Exception('Network error - Check WiFi connection and broker IP');
+      }
       rethrow;
     }
   }
@@ -179,11 +304,27 @@ class IoTService {
   double get currentMoisture => _currentMoisture;
   double get currentTemperature => _currentTemperature;
   bool get currentPumpStatus => _currentPumpStatus;
+  bool get currentPumpMode => _currentPumpMode;
   bool get isTimerActive => _isTimerActive;
   int get currentTimerSeconds => _currentTimerSeconds;
   DateTime get lastMoistureUpdate => _lastMoistureUpdate;
   DateTime get lastTemperatureUpdate => _lastTemperatureUpdate;
   DateTime get lastPumpStatusUpdate => _lastPumpStatusUpdate;
+
+  void setPumpMode(bool isAutomatic) {
+    if (_client.connectionStatus?.state != MqttConnectionState.connected) {
+      debugPrint('Cannot set pump mode: MQTT not connected');
+      return;
+    }
+
+    final builder = MqttClientPayloadBuilder();
+    final modeValue = isAutomatic ? '1' : '0';
+    builder.addString(modeValue);
+
+    _client.publishMessage('pump_mode', MqttQos.atLeastOnce, builder.payload!);
+    debugPrint(
+        'Sent pump mode: ${isAutomatic ? 'Automatic (1)' : 'Manual (0)'}');
+  }
 
   void controlPump({required bool isOn, double? duration}) {
     if (_client.connectionStatus?.state != MqttConnectionState.connected) {
@@ -191,7 +332,11 @@ class IoTService {
       return;
     }
 
-    // Cancel any existing timer
+    if (_currentPumpMode) {
+      debugPrint('Cannot control pump manually: Currently in automatic mode');
+      return;
+    }
+
     _cancelTimer();
 
     final builder = MqttClientPayloadBuilder();
@@ -208,17 +353,19 @@ class IoTService {
       return;
     }
 
-    // Cancel any existing timer
+    if (_currentPumpMode) {
+      debugPrint('Cannot start pump timer: Currently in automatic mode');
+      return;
+    }
+
     _cancelTimer();
 
-    // Turn pump ON
     final builder = MqttClientPayloadBuilder();
     builder.addString('1');
     _client.publishMessage('status', MqttQos.atLeastOnce, builder.payload!);
 
     debugPrint('Started pump timer for $seconds seconds');
 
-    // Start countdown timer
     _isTimerActive = true;
     _currentTimerSeconds = seconds;
     _pumpTimerController.add(_currentTimerSeconds);
@@ -230,7 +377,6 @@ class IoTService {
       debugPrint('Pump timer: ${_currentTimerSeconds}s remaining');
 
       if (_currentTimerSeconds <= 0) {
-        // Time's up, turn pump OFF
         _stopPumpTimer();
       }
     });
@@ -238,7 +384,6 @@ class IoTService {
 
   void _stopPumpTimer() {
     if (_client.connectionStatus?.state == MqttConnectionState.connected) {
-      // Turn pump OFF
       final builder = MqttClientPayloadBuilder();
       builder.addString('0');
       _client.publishMessage('status', MqttQos.atLeastOnce, builder.payload!);
@@ -336,7 +481,12 @@ class IoTService {
       return;
     }
 
-    // Handle quick actions with timer
+    if (_currentPumpMode && (command == 'pump_30s' || command == 'pump_60s')) {
+      debugPrint(
+          'Cannot send manual pump command: Currently in automatic mode');
+      return;
+    }
+
     if (command == 'pump_30s') {
       startPumpWithTimer(30);
       return;
@@ -345,7 +495,6 @@ class IoTService {
       return;
     }
 
-    // For other commands
     final builder = MqttClientPayloadBuilder();
     final commandData = {
       'command': command,
@@ -380,9 +529,9 @@ class IoTService {
 
     if (_client.connectionStatus?.state == MqttConnectionState.connected) {
       final builder = MqttClientPayloadBuilder();
-      builder.addString('offline');
+      builder.addString('0');
       _client.publishMessage(
-        'smart_irrigation/status',
+        'status',
         MqttQos.atLeastOnce,
         builder.payload!,
         retain: true,
@@ -396,6 +545,7 @@ class IoTService {
     _settingsController.close();
     _deviceStatusController.close();
     _plantDataController.close();
-    _pumpTimerController.close(); // Close timer stream
+    _pumpTimerController.close();
+    _pumpModeController.close(); // Close pump mode stream
   }
 }
