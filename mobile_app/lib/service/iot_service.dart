@@ -450,7 +450,15 @@ class IoTService {
       return;
     }
 
-    final builder = MqttClientPayloadBuilder();
+    // Send plant type as simple string to Arduino
+    final plantTypeBuilder = MqttClientPayloadBuilder();
+    plantTypeBuilder.addString(plant.type);
+    _client.publishMessage('plant_type', MqttQos.atLeastOnce, plantTypeBuilder.payload!);
+    
+    debugPrint('Sent plant type to Arduino: ${plant.type}');
+
+    // Send detailed plant data for mobile app usage
+    final plantDataBuilder = MqttClientPayloadBuilder();
     final plantData = {
       'plantType': plant.type,
       'plantName': plant.name,
@@ -458,8 +466,8 @@ class IoTService {
       'detectedAt': plant.detectedAt.toIso8601String(),
     };
 
-    builder.addString(jsonEncode(plantData));
-    _client.publishMessage('plant_data', MqttQos.atLeastOnce, builder.payload!);
+    plantDataBuilder.addString(jsonEncode(plantData));
+    _client.publishMessage('plant_data', MqttQos.atLeastOnce, plantDataBuilder.payload!);
     _plantDataController.add(plant);
 
     debugPrint('Sent plant data: ${jsonEncode(plantData)}');

@@ -225,46 +225,47 @@ class PlantClassificationService {
   }
 
   // Mendapatkan pengaturan penyiraman berdasarkan jenis tanaman
+  // Sesuaikan dengan threshold di Arduino
   Map<String, dynamic> getIrrigationSettings(String plantType) {
     switch (plantType.toLowerCase()) {
       case 'cactus':
         return {
-          'lowerThreshold': 20.0,
+          'lowerThreshold': 20.0,  // Sesuai dengan Arduino
           'upperThreshold': 40.0,
           'pumpDuration': 5.0,
           'automaticMode': true,
         };
       case 'tomato':
         return {
-          'lowerThreshold': 60.0,
+          'lowerThreshold': 55.0,  // Sesuai dengan Arduino
           'upperThreshold': 80.0,
           'pumpDuration': 15.0,
           'automaticMode': true,
         };
       case 'spinach':
         return {
-          'lowerThreshold': 70.0,
+          'lowerThreshold': 60.0,  // Sesuai dengan Arduino
           'upperThreshold': 85.0,
           'pumpDuration': 12.0,
           'automaticMode': true,
         };
       case 'chili':
         return {
-          'lowerThreshold': 50.0,
+          'lowerThreshold': 40.0,  // Sesuai dengan Arduino
           'upperThreshold': 70.0,
           'pumpDuration': 10.0,
           'automaticMode': true,
         };
       case 'monstera':
         return {
-          'lowerThreshold': 55.0,
+          'lowerThreshold': 50.0,  // Sesuai dengan Arduino
           'upperThreshold': 75.0,
           'pumpDuration': 8.0,
           'automaticMode': true,
         };
       default:
         return {
-          'lowerThreshold': 50.0,
+          'lowerThreshold': 40.0,  // Default chili
           'upperThreshold': 70.0,
           'pumpDuration': 10.0,
           'automaticMode': true,
